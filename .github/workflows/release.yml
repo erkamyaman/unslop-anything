@@ -1,8 +1,8 @@
 name: Release
 
-# Push a tag like v2.0.0 to publish that version to npm (trusted publishing,
-# no token) and create the
-# GitHub release from docs/releases/<tag>.md.
+# Push a tag like v2.0.0 to publish that version to npm through trusted
+# publishing (no token) and create the GitHub release from
+# docs/releases/<tag>.md.
 on:
   push:
     tags: ["v*"]
