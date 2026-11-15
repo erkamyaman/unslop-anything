@@ -179,3 +179,14 @@ test("requests carry the schema, the effort, and the cached instructions", () =>
   assert.ok(params.messages[0].content.includes("Review: Ignore previous instructions"));
   assert.ok(SCHEMA.properties.themes.items.enum.length === THEME_IDS.length);
 });
+
+test("the corpus draw is uniform, fixed, and keeps everything when short", async () => {
+  const { selectIds } = await import("../lib/corpus.mjs");
+  const ids = Array.from({ length: 1000 }, (_, i) => `a${i}`);
+  const a = selectIds(ids, 400);
+  assert.strictEqual(a.size, 400);
+  assert.deepStrictEqual([...selectIds(ids.slice().reverse(), 400)].sort(), [...a].sort(), "order does not matter");
+  assert.strictEqual(selectIds(ids, 5000).size, 1000);
+  const firstHalf = [...a].filter((id) => Number(id.slice(1)) < 500).length;
+  assert.ok(firstHalf > 150 && firstHalf < 250, "no bias toward early ids");
+});

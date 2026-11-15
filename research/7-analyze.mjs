@@ -124,6 +124,7 @@ function corpusStats() {
       apps: metas.length,
       appsWithReviews: metas.filter((m) => m.kept > 0).length,
       collected: per.reduce((s, a) => s + a.collected, 0),
+      corpus: per.reduce((s, a) => s + a.corpus, 0),
       lowRated: per.reduce((s, a) => s + a.lowRated, 0),
       population: per.reduce((s, a) => s + a.population, 0),
       requests: metas.reduce((s, m) => s + m.requests, 0),
@@ -250,10 +251,11 @@ function markdown(r) {
   row("Apps with reviews in the window", (p) => num(p.appsWithReviews));
   row("Storefronts", (p) => num(p.countries));
   row("Reviews collected", (p) => num(p.collected));
+  row("In the corpus", (p) => num(p.corpus));
   row(`Rated ${r.method.maxStars} stars or lower`, (p) => num(p.lowRated));
   row(`Of those, ${r.method.minWords}+ words and not duplicated`, (p) => num(p.population));
   row("Median days covered per app", (p) => num(p.medianDaysCovered));
-  L.push("", `Total collected: ${num(c.totals.collected)} reviews.`, "");
+  L.push("", `Total collected: ${num(c.totals.collected)} reviews. Corpus: ${num(c.totals.corpus)} (a random draw per store: 60% App Store, 40% Google Play).`, "");
 
   for (const platform of PLATFORMS) {
     const p = r.platforms[platform];
