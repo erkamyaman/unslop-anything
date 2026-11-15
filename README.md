@@ -22,22 +22,32 @@ Works in Claude Code, Codex, Cursor, OpenCode, Gemini CLI, and GitHub Copilot ([
 
 ## The doctor did the reading
 
-Dr. Unslopovich scanned 105,027 App Store reviews from 299 top apps. Exactly one mentioned a purple gradient. It was asking for one.
+Dr. Unslopovich read 1,201,466 reviews of 1,162 apps on the App Store and Google Play. Not one mentioned a purple gradient. "Gradient" came up 58 times, mostly from people asking for one.
 
-Here's what made people furious instead, in the 46,742 reviews rated 3 stars or lower:
+Here's what the 529,434 reviews rated 3 stars or lower complained about instead:
 
-- **You made it slow.** 4,326 reviews about lag, glitches, and crashes.
-- **You moved the button.** 1,751. Telegram's Contacts tab. Chrome's back arrow. Instagram's hold to pause.
-- **You interrupted them.** 1,148. Popups in the middle of ordering food.
-- **You hid everything.** 859 said it was hard to find or use.
-- **You put AI where the feature was.** 705. Gemini in the toolbar. Alexa in the search box.
-- **You never tried it on their phone.** 345 about broken layouts.
+| | App Store | Google Play |
+|---|---|---|
+| **It's broken.** Something just doesn't work | 29% | 36% |
+| **The business behind it.** Late deliveries, unfair games, bad drivers | 24% | 20% |
+| **Nobody helps.** Support, refunds, scams | 22% | 18% |
+| **It costs too much.** Paywalls, subscriptions, surprise charges | 20% | 14% |
+| **Can't get in.** Login, verification codes, locked accounts | 11% | 10% |
+| **You interrupted them.** Ads and popups mid-task | 10% | 13% |
+| **You moved the button.** A redesign moved or removed something | 9% | 6% |
+| **You hid everything.** Hard to find or use | 6% | 7% |
+| **You made it slow.** Lag, freezing, battery | 5% | 7% |
+| **It crashed.** | 5% | 4% |
+| **You never tried it on their phone.** Broken layouts | 2% | 2% |
+| **You put AI where the feature was.** | 2% | 1% |
 
-<sub>Most recent reviews from the US and UK App Stores. Keyword matches, so treat them as rough. Themes can overlap.</sub>
+About a quarter of complaints (24% on the App Store, 25% on Google Play) are things a design and front-end pass can fix. Crashes, lag, and bugs together are 35% and 43%.
+
+<sub>A random sample of 1,200 low-rated reviews, each read and labelled against written definitions; a review can name several problems. Rounded; 95% intervals are about ±3 to 4 points for the big themes. [The whole method, code, and limits.](research/README.md)</sub>
 
 So the doctor checks what users actually scream about first, and your gradient second.
 
-The biggest bucket is the one no design review can see: you can't read lag off a screenshot. The doctor flags what code gives away, like lists that render every row up front, and every report says **Not profiled** until someone actually profiles it. A clean review is not a clean bill of health.
+The biggest bucket is the one no design review can see: you can't read a bug or lag off a screenshot. The doctor flags what code gives away, like lists that render every row up front, and every report says **Not profiled** until someone actually profiles it. A clean review is not a clean bill of health.
 
 ## Symptoms
 

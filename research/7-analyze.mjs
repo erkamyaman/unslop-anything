@@ -105,9 +105,14 @@ export function appShare(apps, key) {
   return eligible.length ? eligible.reduce((s, a) => s + a.k[key] / a.n, 0) / eligible.length : NaN;
 }
 
-export function percentile(sorted, q) {
-  const xs = sorted.filter(Number.isFinite);
-  return xs.length ? xs[Math.min(xs.length - 1, Math.max(0, Math.round(q * (xs.length - 1))))] : NaN;
+// A 95% interval from bootstrap values. NaN (a resample where the correction
+// is undefined) breaks numeric sorting, so only finite values are sorted, and
+// no interval is given when more than a tenth of the resamples are undefined.
+export function interval(values) {
+  const xs = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (xs.length < 0.9 * values.length) return [NaN, NaN];
+  const at = (q) => xs[Math.min(xs.length - 1, Math.max(0, Math.round(q * (xs.length - 1))))];
+  return [at(0.025), at(0.975)];
 }
 
 function resample(items, random) {
@@ -196,12 +201,14 @@ async function main() {
           boot.review.push(correct(reviewShare(appDraws[i], key), a.sensitivity, a.specificity));
           boot.app.push(correct(appShare(appDraws[i], key), a.sensitivity, a.specificity));
         }
-        for (const which of ["review", "app"]) boot[which].sort((x, y) => x - y);
+        const reviewCI = interval(boot.review);
+        const appCI = interval(boot.app);
+        // A correction without a stable interval is not reported.
         est.corrected = {
-          review: correct(est.rules.review, acc.sensitivity, acc.specificity),
-          reviewCI: [percentile(boot.review, 0.025), percentile(boot.review, 0.975)],
-          app: correct(est.rules.app, acc.sensitivity, acc.specificity),
-          appCI: [percentile(boot.app, 0.025), percentile(boot.app, 0.975)],
+          review: Number.isFinite(reviewCI[0]) ? correct(est.rules.review, acc.sensitivity, acc.specificity) : NaN,
+          reviewCI,
+          app: Number.isFinite(appCI[0]) ? correct(est.rules.app, acc.sensitivity, acc.specificity) : NaN,
+          appCI,
         };
       }
       p.estimates[key] = est;
@@ -260,7 +267,7 @@ function markdown(r) {
   for (const platform of PLATFORMS) {
     const p = r.platforms[platform];
     L.push(`## ${STORE[platform]}`, "");
-    L.push(`Reference sample: ${p.reference.labelled} reviews labelled by hand, ${p.reference.english} in English, ${pct(p.reference.complaintShare)} of them complaints. Rules: ${num(p.rules.reviews)} English reviews from ${p.rules.apps} apps.`, "");
+    L.push(`Reference sample: ${p.reference.labelled} reviews labelled one by one, ${p.reference.english} in English, ${pct(p.reference.complaintShare)} of them complaints. Rules: ${num(p.rules.reviews)} English reviews from ${p.rules.apps} apps.`, "");
     L.push("| Theme | Reference share | 95% interval | Corrected review share | 95% interval | Corrected app share | 95% interval | Rule kappa |", "|---|---|---|---|---|---|---|---|");
     const keys = KEYS.slice().sort((a, b) => (p.estimates[b].reference.share || 0) - (p.estimates[a].reference.share || 0));
     for (const k of keys) {

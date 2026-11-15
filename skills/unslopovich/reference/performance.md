@@ -1,6 +1,6 @@
 # Performance
 
-Lag, glitches, and crashes are the biggest complaint in low-rated app reviews, bigger than any visual problem. A design review cannot measure them. So this file does two things: it lists what you can catch in code, and it makes sure the report never implies a clean bill of health it did not earn.
+Bugs, lag, and crashes together are the biggest group of complaints in low-rated app reviews: about a third on the App Store and two fifths on Google Play, more than everything a design pass can fix. A design review cannot measure them. So this file does two things: it lists what you can catch in code, and it makes sure the report never implies a clean bill of health it did not earn.
 
 ## The rule
 

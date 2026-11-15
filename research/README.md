@@ -30,7 +30,7 @@ App Store apps return fewer recent reviews than Google Play apps, so to reach th
 
 **Themes.** Fifteen complaint themes with written boundaries, in [lib/taxonomy.mjs](lib/taxonomy.mjs). Crashes, slowness, and bugs are separate themes. A review can state several. Labels describe what the reviewer says, not a guess at the cause.
 
-**Reference sample.** 600 reviews per store, drawn uniformly at random from the store's whole population, labelled one by one against the theme definitions: English or not, complaint or not, every theme stated. These labels are the reference: they give a direct estimate of each theme's share with a Wilson 95% interval, and they measure the rules below.
+**Reference sample.** 600 reviews per store, drawn uniformly at random from the store's whole population, labelled one by one against the theme definitions: English or not, complaint or not, every theme stated. The labelling was done by Claude, in four parallel sessions that each read 300 reviews against the definitions in [lib/taxonomy.mjs](lib/taxonomy.mjs); no keyword matching, and none of them saw the rules or their output. These labels are the reference: they give a direct estimate of each theme's share with a Wilson 95% interval, and they measure the rules below.
 
 **Rules on everything.** A rule classifier ([lib/rules.mjs](lib/rules.mjs)) labels every review in the population. It covers every app, which the reference sample cannot, but it makes mistakes. Its sensitivity, specificity, precision, and Cohen's kappa per theme are measured against the reference labels and published.
 
@@ -49,7 +49,8 @@ App Store apps return fewer recent reviews than Google Play apps, so to reach th
 - **Play reaches less far back.** Google Play has no date filter. For busy apps, newest-first reviews cover hours, so Play leans on most-helpful order and its windows are shorter than Apple's. The results report the median span covered per app.
 - **Top charts only.** Apps outside the top 100 of their category are not in the study.
 - **The stores have different app mixes.** The App Store side has more apps, more of them from ranks 11 to 100. Compare stores theme by theme with that in mind, or compare within a rank band.
-- **One labeller.** The reference sample was labelled once, by one labeller, against written definitions. A second independent labeller would measure how consistent those definitions are; the sheet in `data/gold` makes that possible.
+- **The reference labels are a model's.** Claude read and labelled each reference review; no person checked them. Each review was labelled once. The four sessions reported a few borderline cases they decided differently (for example, a payout that never arrives was sometimes a bug and sometimes a support complaint). A person, or a second independent pass, labelling the same 1,200 would measure how far to trust each theme; `6-validate.mjs --score` compares such a sheet.
+- **The rules are weak on some themes.** Their agreement with the reference (Cohen's kappa, in [results/summary.md](results/summary.md)) is 0.6 to 0.8 for login, interruptions, lag, and crashes, but 0.2 to 0.4 for bugs, the service behind the app, and missing features. Corrected estimates are not reported where the correction is unstable; the reference shares are the headline numbers.
 - **Rules miss context.** Sarcasm, negation, and indirect complaints slip past them. The correction fixes the totals, not individual reviews.
 - **What reviews cannot show.** A review says an app feels slow; it does not measure it.
 

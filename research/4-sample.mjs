@@ -5,7 +5,7 @@
 // review carries a weight (the app's population over its sample size) so
 // estimates can be made per review as well as per app.
 // Reference sample: GOLD_PER_PLATFORM reviews per store, drawn uniformly from
-// the store's whole population, for labelling by hand. It measures the rule
+// the store's whole population, for labelling one by one. It measures the rule
 // classifier's accuracy and gives a direct estimate of each theme's share.
 // Output: data/sample.jsonl.gz, data/population.json, data/gold/sample.jsonl.gz,
 //         data/gold/batch-NN.json (what a labeller reads)
