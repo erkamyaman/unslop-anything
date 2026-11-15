@@ -4,7 +4,7 @@
 
 Users don't hate your purple gradient. They hate what you did to the back button.
 
-![Before: a purple gradient dashboard full of sparkles and fake stats. After: a clean native list of zones and quick actions](docs/before-after.png)
+![Before: a purple gradient dashboard with sparkles, an AI promo, invented stats, and an ad in the middle of the screen. After: the same app as a native Android zone list with search, swipe actions for purge cache and DNS, a pending zone labeled in words, and one Add site button](docs/before-after.png)
 
 <sub>Dramatization. Your app may be worse.</sub>
 
