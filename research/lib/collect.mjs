@@ -61,8 +61,16 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
       }
     }
     const passes = [];
+    // A storefront whose newest-first list has nothing inside the window has
+    // nothing inside it in any order, so its other passes are skipped.
+    const empty = new Set(prior.filter((p) => p.inWindow === 0 && NEWEST_FIRST.has(p.sort)).map((p) => p.country));
     for (const pass of todo) {
       if (byId.size >= cap) break;
+      if (empty.has(pass.country)) {
+        passes.push({ ...pass, skipped: "no reviews in the window" });
+        continue;
+      }
+      let inWindow = 0;
       let added = 0;
       let seenInPass = 0;
       let outside = 0;
@@ -79,6 +87,7 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
               continue;
             }
             pageInWindow++;
+            inWindow++;
             if (byId.has(review.id)) continue;
             byId.set(review.id, { ...review, app: app.id, platform, country: pass.country, sort: pass.sort });
             added++;
@@ -90,7 +99,8 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
         passes.push({ ...pass, error: String(err.message || err) });
         continue;
       }
-      passes.push({ ...pass, seen: seenInPass, outsideWindow: outside, added });
+      passes.push({ ...pass, seen: seenInPass, outsideWindow: outside, inWindow, added });
+      if (NEWEST_FIRST.has(pass.sort) && inWindow === 0) empty.add(pass.country);
     }
     const rows = [...byId.values()];
     writeJsonlGz(out, rows);
