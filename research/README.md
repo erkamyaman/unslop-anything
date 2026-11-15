@@ -14,6 +14,8 @@ All parameters live in [config.mjs](config.mjs).
 
 **Apps.** For each of 21 categories, on each store, 22 apps from the US top-free chart, drawn at random from three rank bands: 1 to 10, 11 to 50, and 51 to 100 (Apple's chart feed stops at 100). Seeded, so the same draw comes out every time. About 460 apps per store.
 
+App Store apps return fewer recent reviews than Google Play apps, so to reach the App Store's share of the corpus (below), two more rounds of App Store apps were drawn from the same charts with the same method, skipping apps already in: about 1,080 App Store apps in all. The top-10 band was nearly used up by the first round, so the later rounds come mostly from ranks 11 to 100. `data/apps.json` records the round of every app, and the results break estimates down by rank band.
+
 **Reviews.** English-language storefronts: US, UK, Canada, Australia, New Zealand, Ireland, India, Singapore, South Africa, the Philippines.
 
 - App Store: Apple's public customer-reviews feed, both newest-first and most-helpful order.
@@ -22,7 +24,9 @@ All parameters live in [config.mjs](config.mjs).
 - Only reviews from the 24 months before collection are kept.
 - Review ids, star ratings, titles, texts, dates, app versions, and helpful-vote counts are stored. Reviewer names are not.
 
-**Population.** Reviews of 3 stars or fewer with at least 4 words, after removing duplicate texts within an app.
+**Corpus.** 1,000,000 reviews: 600,000 from the App Store and 400,000 from Google Play, each a uniform random draw from everything collected for that store ([lib/corpus.mjs](lib/corpus.mjs)). The 60/40 split is a choice, not a measurement. Results are reported per store, so the split sets how much data each store's estimates rest on, not the estimates themselves.
+
+**Population.** Corpus reviews of 3 stars or fewer with at least 4 words, after removing duplicate texts within an app.
 
 **Themes.** Fifteen complaint themes with written boundaries, in [lib/taxonomy.mjs](lib/taxonomy.mjs). Crashes, slowness, and bugs are separate themes. A review can state several. Labels describe what the reviewer says, not a guess at the cause.
 
@@ -44,6 +48,7 @@ All parameters live in [config.mjs](config.mjs).
 - **Low-rated reviews are not all users.** People who leave a 1-star review are not a random sample of users, and many unhappy users never write one.
 - **Play reaches less far back.** Google Play has no date filter. For busy apps, newest-first reviews cover hours, so Play leans on most-helpful order and its windows are shorter than Apple's. The results report the median span covered per app.
 - **Top charts only.** Apps outside the top 100 of their category are not in the study.
+- **The stores have different app mixes.** The App Store side has more apps, more of them from ranks 11 to 100. Compare stores theme by theme with that in mind, or compare within a rank band.
 - **One labeller.** The reference sample was labelled once, by one labeller, against written definitions. A second independent labeller would measure how consistent those definitions are; the sheet in `data/gold` makes that possible.
 - **Rules miss context.** Sarcasm, negation, and indirect complaints slip past them. The correction fixes the totals, not individual reviews.
 - **What reviews cannot show.** A review says an app feels slow; it does not measure it.
