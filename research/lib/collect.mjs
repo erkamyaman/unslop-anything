@@ -1,10 +1,16 @@
 // The collection loop both platforms share: walk an app's storefront-and-sort
-// passes in a seeded order, take at most CAP_PER_PASS from each, stop at
-// CAP_PER_APP, dedupe by review id, and write one file per app.
+// passes in a seeded order, take at most CAP_PER_PASS from each, stop at the
+// store's CAP_PER_APP, dedupe by review id, and write one file per app.
+//
+// Collection is incremental. An app already collected is skipped when it has
+// reached the cap or has no pass left to run; otherwise it continues with the
+// passes it has not run yet (new storefronts, or the rest of its order after a
+// cap increase), keeping what it has. An app with a failed pass is collected
+// again from scratch, so a temporary error leaves no hole.
 
 import fs from "node:fs";
 import { CAP_PER_APP, CAP_PER_PASS, CONCURRENCY, SEED, WINDOW_MONTHS } from "../config.mjs";
-import { dataPath, readJson, writeJsonlGz, writeJson, rng, shuffle, hash, pool, log } from "./util.mjs";
+import { dataPath, readJson, readJsonlGz, writeJsonlGz, writeJson, rng, shuffle, hash, pool, log } from "./util.mjs";
 
 // Countries in a per-app random order, each with every sort order, so a big
 // app that hits its cap early still gets a random mix of storefronts and
@@ -33,30 +39,34 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
   await pool(mine, Number(concurrency) || CONCURRENCY, async (app) => {
     const out = dataPath("raw", platform, `${app.id}.jsonl.gz`);
     const metaFile = dataPath("raw", platform, `${app.id}.meta.json`);
+    const cap = CAP_PER_APP[platform];
+    const plan = passesFor(app.id, countries, sorts);
+    const byId = new Map();
+    let prior = [];
+    let requests = 0;
+    let todo = plan;
     if (fs.existsSync(out) && fs.existsSync(metaFile)) {
-      // Done, unless it filled a smaller cap than today's: then there may be
-      // more to collect, and the same seeded pass order gives the same result
-      // as collecting at today's cap from the start.
-      // An app with a failed pass (throttling, a dropped connection) is
-      // collected again so a temporary error does not leave a hole.
       const meta = readJson(metaFile);
-      const oldCap = meta.cap ?? 1600;
-      const failed = meta.passes.some((p) => p.error);
-      if (!failed && (meta.kept < oldCap || oldCap >= CAP_PER_APP)) {
-        total += meta.kept;
-        done++;
-        return;
+      if (!meta.passes.some((p) => p.error)) {
+        const ran = new Set(meta.passes.map((p) => `${p.country}|${p.sort}`));
+        todo = plan.filter((p) => !ran.has(`${p.country}|${p.sort}`));
+        if (meta.kept >= cap || !todo.length) {
+          total += meta.kept;
+          done++;
+          return;
+        }
+        for (const r of readJsonlGz(out)) byId.set(r.id, r);
+        prior = meta.passes;
+        requests = meta.requests;
       }
     }
-    const byId = new Map();
     const passes = [];
-    let requests = 0;
-    for (const pass of passesFor(app.id, countries, sorts)) {
-      if (byId.size >= CAP_PER_APP) break;
+    for (const pass of todo) {
+      if (byId.size >= cap) break;
       let added = 0;
       let seenInPass = 0;
       let outside = 0;
-      const room = () => Math.min(CAP_PER_PASS - added, CAP_PER_APP - byId.size);
+      const room = () => Math.min(CAP_PER_PASS - added, cap - byId.size);
       try {
         for await (const page of fetchPass(app, pass)) {
           requests++;
@@ -90,12 +100,12 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
       platform,
       requests,
       since,
-      cap: CAP_PER_APP,
+      cap,
       collectedAt: new Date().toISOString(),
       kept: rows.length,
       oldest: dates[0] ?? null,
       newest: dates.at(-1) ?? null,
-      passes,
+      passes: [...prior, ...passes],
     });
     total += rows.length;
     done++;

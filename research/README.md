@@ -14,13 +14,13 @@ All parameters live in [config.mjs](config.mjs).
 
 **Apps.** For each of 21 categories, on each store, 22 apps from the US top-free chart, drawn at random from three rank bands: 1 to 10, 11 to 50, and 51 to 100 (Apple's chart feed stops at 100). Seeded, so the same draw comes out every time. About 460 apps per store.
 
-App Store apps return fewer recent reviews than Google Play apps, so to reach the App Store's share of the corpus (below), more App Store apps were added in three further rounds from the same charts, skipping apps already in. The last round took every app left in each category's top 100: about 2,000 App Store apps in all. The later rounds come almost entirely from ranks 11 to 100, because the first round had already taken the top 10. `data/apps.json` records the round of every app, and the results break estimates down by rank band.
+App Store apps return fewer recent reviews than Google Play apps, so to reach the App Store's share of the corpus (below), more App Store apps were added in three further rounds from the same charts, skipping apps already in. The fourth round took every app left in each category's top-free 100, and a fifth drew from each category's top-paid chart: about 3,400 App Store apps in all. The later free rounds come almost entirely from ranks 11 to 100, because the first round had already taken the top 10. `data/apps.json` records each app's round and chart. `data/apps.json` records the round of every app, and the results break estimates down by rank band.
 
-**Reviews.** English-language storefronts: US, UK, Canada, Australia, New Zealand, Ireland, India, Singapore, South Africa, the Philippines.
+**Reviews.** Twenty English-language storefronts: the US, the UK, Canada, Australia, New Zealand, Ireland, India, Singapore, South Africa, the Philippines, Malaysia, Nigeria, Kenya, Ghana, Pakistan, the UAE, Hong Kong, Jamaica, Malta, and Sri Lanka. The first ten were collected first; the second ten were added for every app afterwards.
 
 - App Store: Apple's public customer-reviews feed, both newest-first and most-helpful order.
 - Google Play: the open-source [google-play-scraper](https://github.com/facundoolano/google-play-scraper), newest-first and most-helpful order, at a polite rate.
-- Each app's storefronts are visited in a seeded random order, alternating sort orders, with at most 150 reviews from any one storefront-and-order pass and 2,400 per app. A big app's reviews therefore come from several storefronts and both orders instead of one week in one country.
+- Each app's storefronts are visited in a seeded random order, alternating sort orders, with at most 150 reviews from any one storefront-and-order pass and 2,400 per App Store app or 2,800 per Google Play app. A big app's reviews therefore come from several storefronts and both orders instead of one week in one country.
 - Only reviews from the 24 months before collection are kept.
 - Review ids, star ratings, titles, texts, dates, app versions, and helpful-vote counts are stored. Reviewer names are not.
 

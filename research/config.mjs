@@ -42,8 +42,9 @@ export const CHART_COUNTRY = "us";
 
 // English-language storefronts. Reviews are collected per storefront and
 // deduplicated by review id.
-export const APPLE_COUNTRIES = ["us", "gb", "ca", "au", "nz", "ie", "in", "sg", "za", "ph"];
-export const PLAY_COUNTRIES = ["us", "gb", "ca", "au", "nz", "ie", "in", "sg", "za", "ph"];
+export const ENGLISH_STOREFRONTS = ["us", "gb", "ca", "au", "nz", "ie", "in", "sg", "za", "ph", "my", "ng", "ke", "gh", "pk", "ae", "hk", "jm", "mt", "lk"];
+export const APPLE_COUNTRIES = ENGLISH_STOREFRONTS;
+export const PLAY_COUNTRIES = ENGLISH_STOREFRONTS;
 
 // Apple's feed returns at most 10 pages of 50 per storefront and sort order.
 // Newest-first alone covers only days for a big app, so both orders are used.
@@ -52,7 +53,7 @@ export const PLAY_SORTS = ["NEWEST", "HELPFULNESS"];
 
 // Reviews kept per app, and the most any one storefront-and-sort pass may
 // add, so a big app's reviews come from several storefronts and both orders.
-export const CAP_PER_APP = 2400;
+export const CAP_PER_APP = { apple: 2400, play: 2800 };
 export const CAP_PER_PASS = 150;
 
 // Politeness: concurrent apps, and the pause before each request.
