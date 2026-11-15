@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
-const { scan, scanSource, rules, isSlopHue, main } = require("../scripts/detect.js");
+const { scan, scanSource, rules, isSlopHue, main } = require("../skills/unslopovich/scripts/detect.js");
 
 const fixtures = path.join(__dirname, "fixtures");
 const rulesIn = (file) => new Set(scan([path.join(fixtures, "slop", file)]).findings.map((f) => f.rule));

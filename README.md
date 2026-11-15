@@ -18,7 +18,7 @@ Then tell your agent:
 /unslopovich review my app
 ```
 
-Mobile apps, web apps, and websites. Same doctor, different reflexes: on a phone it checks you didn't build a website, and on the web it checks you didn't break one.
+Works in Claude Code, Codex, Cursor, OpenCode, Gemini CLI, and GitHub Copilot ([install options](#install)). Mobile apps, web apps, and websites. Same doctor, different reflexes: on a phone it checks you didn't build a website, and on the web it checks you didn't break one.
 
 ## The doctor did the reading
 
@@ -117,13 +117,33 @@ Only want the bad news? Ask for a review and it stops at the diagnosis.
 
 The doctor trained under good people. [Impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus showed that a deterministic detector and design vocabulary beat a longer prompt. [Hallmark](https://github.com/Nutlope/hallmark) by Together AI showed the value of a floor that never bends, defaults you can only waive on the record, and a fresh-eyed reviewer at the end. [Unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky ([@heydamir](https://x.com/heydamir)) showed that deciding how much to change comes before changing anything, and that richness belongs in the content, not the chrome. Unslopovich is for the screens they leave to others: native mobile apps, and the parts of a web app people use every day.
 
-## Other agents
-
-Installs for Claude Code by default. The skill is `SKILL.md` plus a `reference/` folder it reads on demand and the detector in `scripts/`. For any other agent that reads `SKILL.md`, point it at that agent's skills folder:
+## Install
 
 ```bash
-npx unslopovich --dir ~/path/to/skills
+npx unslopovich
 ```
+
+The installer finds the coding agents on your machine and installs for each one. Needs Node 18 or later.
+
+| Agent | Installed to | Then type |
+|---|---|---|
+| Claude Code | `~/.claude/skills/unslopovich` | `/unslopovich review my app` |
+| Codex | `~/.agents/skills/unslopovich` | `$unslopovich review my app` |
+| Cursor | `~/.agents/skills/unslopovich` (Cursor reads it there) | `/unslopovich review my app` |
+| OpenCode | `~/.agents/skills/unslopovich` (OpenCode reads it there) | `/unslopovich review my app` |
+| Gemini CLI | `.gemini/skills/unslopovich`, per project | `/unslopovich review my app` |
+| GitHub Copilot | `.github/skills/unslopovich`, per project | `/unslopovich review my app` |
+
+Or just ask in your own words ("review my app for AI slop") and the agent picks the skill up.
+
+- **Some agents only:** `npx unslopovich --agent codex,cursor` (any of `claude`, `codex`, `cursor`, `opencode`, `gemini`, `copilot`)
+- **One project, for the whole team:** run `npx unslopovich --project` in the project and commit the folder it creates
+- **Any other agent that reads `SKILL.md`:** `npx unslopovich --dir path/to/its/skills`
+- **As a Claude Code plugin:** `/plugin marketplace add erkamyaman/unslopovich`, then `/plugin install unslopovich@unslopovich`
+- **With the open skills installer:** `npx skills add erkamyaman/unslopovich`
+- **By hand:** copy `skills/unslopovich` from this repo into your agent's skills folder
+
+The skill is `SKILL.md`, a `reference/` folder it reads on demand, and the detector in `scripts/`. Run `npx unslopovich` again to update.
 
 ## License
 
