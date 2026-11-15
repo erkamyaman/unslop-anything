@@ -11,6 +11,8 @@
   },
   "files": [
     "SKILL.md",
+    "reference",
+    "scripts",
     "bin"
   ],
   "keywords": [
@@ -19,7 +21,18 @@
     "mobile",
     "ui",
     "ux",
-    "ai-slop"
+    "ai-slop",
+    "react-native",
+    "flutter",
+    "swiftui",
+    "jetpack-compose",
+    "linter"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }
