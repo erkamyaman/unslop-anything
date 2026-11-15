@@ -1,8 +1,25 @@
-# unslopovich
+<p align="center">
+  <img src="docs/logo.svg" width="160" height="160" alt="A phone with a stethoscope listening to it">
+</p>
 
-**Your app looks AI-generated. Dr. Unslopovich noticed.**
+<h1 align="center">unslopovich</h1>
 
-Users don't hate your purple gradient. They hate what you did to the back button.
+<p align="center"><em>Your app looks AI-generated. Dr. Unslopovich noticed.</em></p>
+
+<p align="center"><em>Users don't hate your purple gradient. They hate what you did to the back button.</em></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/unslopovich"><img src="https://img.shields.io/npm/v/unslopovich?color=E2862A&label=npm" alt="npm version"></a>
+  <a href="#install"><img src="https://img.shields.io/badge/works%20with-6%20agents-E2862A" alt="Works with 6 agents"></a>
+  <a href="https://github.com/erkamyaman/unslopovich/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/erkamyaman/unslopovich/test.yml?branch=main&label=tests" alt="Tests"></a>
+  <img src="https://img.shields.io/badge/deps-0-brightgreen" alt="No dependencies">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-E2862A" alt="MIT license"></a>
+  <a href="https://github.com/erkamyaman/unslopovich"><img src="https://img.shields.io/github/stars/erkamyaman/unslopovich?style=social" alt="GitHub stars"></a>
+</p>
+
+<p align="center">1,201,466 app reviews read · 0 purple gradients found · 31 detector rules · one command</p>
+
+<p align="center"><a href="research/README.md">The study behind it</a>: what people actually complain about, with the method and the code.</p>
 
 ![Before: a purple gradient dashboard with sparkles, an AI promo, invented stats, and an ad in the middle of the screen. After: the same app as a native Android zone list with search, swipe actions for purge cache and DNS, a pending zone labeled in words, and one Add site button](docs/before-after.png)
 
