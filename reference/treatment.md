@@ -2,6 +2,8 @@
 
 Read this before the first edit. The diagnosis says what is wrong. This says how to fix it without making a different mess.
 
+The triage, the direction, and the pass order are adapted from [Unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky ([@heydamir](https://x.com/heydamir)), licensed CC BY 4.0. The neighbor test, the waivers, and the fresh-context reviewer are adapted from [Hallmark](https://github.com/Nutlope/hallmark) (MIT).
+
 ## How much to change
 
 Read the diagnosis honestly and call the case before you plan anything.

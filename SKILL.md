@@ -69,3 +69,7 @@ The full catalog, with detector rule ids, is in [reference/tells.md](reference/t
 - Never trade one generic look for another. The after must look more like this product, not more like a template.
 - Never change a healthy screen just to make it different. Say it is healthy.
 - Never report a check as passed that you did not run.
+
+## Credits
+
+Unslopovich builds on ideas from three skills. [Impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus (Apache 2.0): a deterministic detector, references loaded on demand, and scored reports. [Hallmark](https://github.com/Nutlope/hallmark) by Together AI (MIT): a floor that never bends, waivers on the record, the neighbor test, and a fresh-context reviewer. [Unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky, [@heydamir](https://x.com/heydamir) (CC BY 4.0): deciding how much to change before changing anything, the direction written before editing, and fixing in passes. No text or code was copied; the ideas are adapted in our own words.
