@@ -52,7 +52,7 @@ export const PLAY_SORTS = ["NEWEST", "HELPFULNESS"];
 
 // Reviews kept per app, and the most any one storefront-and-sort pass may
 // add, so a big app's reviews come from several storefronts and both orders.
-export const CAP_PER_APP = 1600;
+export const CAP_PER_APP = 2400;
 export const CAP_PER_PASS = 150;
 
 // Politeness: concurrent apps, and the pause before each request.

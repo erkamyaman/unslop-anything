@@ -34,9 +34,16 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
     const out = dataPath("raw", platform, `${app.id}.jsonl.gz`);
     const metaFile = dataPath("raw", platform, `${app.id}.meta.json`);
     if (fs.existsSync(out) && fs.existsSync(metaFile)) {
-      total += readJson(metaFile).kept;
-      done++;
-      return;
+      // Done, unless it filled a smaller cap than today's: then there may be
+      // more to collect, and the same seeded pass order gives the same result
+      // as collecting at today's cap from the start.
+      const meta = readJson(metaFile);
+      const oldCap = meta.cap ?? 1600;
+      if (meta.kept < oldCap || oldCap >= CAP_PER_APP) {
+        total += meta.kept;
+        done++;
+        return;
+      }
     }
     const byId = new Map();
     const passes = [];
@@ -80,6 +87,7 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
       platform,
       requests,
       since,
+      cap: CAP_PER_APP,
       collectedAt: new Date().toISOString(),
       kept: rows.length,
       oldest: dates[0] ?? null,

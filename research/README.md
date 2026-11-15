@@ -18,7 +18,7 @@ All parameters live in [config.mjs](config.mjs).
 
 - App Store: Apple's public customer-reviews feed, both newest-first and most-helpful order.
 - Google Play: the open-source [google-play-scraper](https://github.com/facundoolano/google-play-scraper), newest-first and most-helpful order, at a polite rate.
-- Each app's storefronts are visited in a seeded random order, alternating sort orders, with at most 150 reviews from any one storefront-and-order pass and 1,600 per app. A big app's reviews therefore come from several storefronts and both orders instead of one week in one country.
+- Each app's storefronts are visited in a seeded random order, alternating sort orders, with at most 150 reviews from any one storefront-and-order pass and 2,400 per app. A big app's reviews therefore come from several storefronts and both orders instead of one week in one country.
 - Only reviews from the 24 months before collection are kept.
 - Review ids, star ratings, titles, texts, dates, app versions, and helpful-vote counts are stored. Reviewer names are not.
 
