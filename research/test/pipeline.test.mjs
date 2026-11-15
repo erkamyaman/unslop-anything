@@ -181,7 +181,9 @@ test("requests carry the schema, the effort, and the cached instructions", () =>
 });
 
 test("the corpus draw is uniform, fixed, and keeps everything when short", async () => {
-  const { selectIds } = await import("../lib/corpus.mjs");
+  const { selectIds, targets } = await import("../lib/corpus.mjs");
+  assert.deepStrictEqual(targets({ apple: 2_000_000, play: 700_000 }), { apple: 1_050_000, play: 700_000 });
+  assert.deepStrictEqual(targets({ apple: 900_000, play: 700_000 }), { apple: 900_000, play: 600_000 }, "short App Store draws Play down");
   const ids = Array.from({ length: 1000 }, (_, i) => `a${i}`);
   const a = selectIds(ids, 400);
   assert.strictEqual(a.size, 400);

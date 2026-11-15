@@ -59,9 +59,9 @@ export const CAP_PER_PASS = 150;
 export const CONCURRENCY = 3;
 export const REQUEST_DELAY_MS = 350;
 
-// The corpus: how many collected reviews each store contributes, drawn at
-// random from everything collected for it. 60% App Store, 40% Google Play.
-export const CORPUS_TARGET = { apple: 600_000, play: 400_000 };
+// The corpus split: every Google Play review collected is 40% of the corpus,
+// and a random draw of App Store reviews is the other 60%.
+export const CORPUS_SPLIT = { apple: 0.6, play: 0.4 };
 
 // Only reviews from the last WINDOW_MONTHS before collection are kept, so an
 // old most-helpful review about a long-gone design does not take a slot.

@@ -14,7 +14,7 @@ All parameters live in [config.mjs](config.mjs).
 
 **Apps.** For each of 21 categories, on each store, 22 apps from the US top-free chart, drawn at random from three rank bands: 1 to 10, 11 to 50, and 51 to 100 (Apple's chart feed stops at 100). Seeded, so the same draw comes out every time. About 460 apps per store.
 
-App Store apps return fewer recent reviews than Google Play apps, so to reach the App Store's share of the corpus (below), two more rounds of App Store apps were drawn from the same charts with the same method, skipping apps already in: about 1,080 App Store apps in all. The top-10 band was nearly used up by the first round, so the later rounds come mostly from ranks 11 to 100. `data/apps.json` records the round of every app, and the results break estimates down by rank band.
+App Store apps return fewer recent reviews than Google Play apps, so to reach the App Store's share of the corpus (below), more App Store apps were added in three further rounds from the same charts, skipping apps already in. The last round took every app left in each category's top 100: about 2,000 App Store apps in all. The later rounds come almost entirely from ranks 11 to 100, because the first round had already taken the top 10. `data/apps.json` records the round of every app, and the results break estimates down by rank band.
 
 **Reviews.** English-language storefronts: US, UK, Canada, Australia, New Zealand, Ireland, India, Singapore, South Africa, the Philippines.
 
@@ -24,7 +24,7 @@ App Store apps return fewer recent reviews than Google Play apps, so to reach th
 - Only reviews from the 24 months before collection are kept.
 - Review ids, star ratings, titles, texts, dates, app versions, and helpful-vote counts are stored. Reviewer names are not.
 
-**Corpus.** 1,000,000 reviews: 600,000 from the App Store and 400,000 from Google Play, each a uniform random draw from everything collected for that store ([lib/corpus.mjs](lib/corpus.mjs)). The 60/40 split is a choice, not a measurement. Results are reported per store, so the split sets how much data each store's estimates rest on, not the estimates themselves.
+**Corpus.** 60% App Store, 40% Google Play ([lib/corpus.mjs](lib/corpus.mjs)). Every Google Play review collected is in the corpus and is the 40%; a uniform random draw of App Store reviews is the 60%. If the App Store had not collected enough for its share, Google Play would have been drawn down instead. The final counts are in [results/summary.md](results/summary.md). The 60/40 split is a choice, not a measurement. Results are reported per store, so the split sets how much data each store's estimates rest on, not the estimates themselves.
 
 **Population.** Corpus reviews of 3 stars or fewer with at least 4 words, after removing duplicate texts within an app.
 
