@@ -37,9 +37,12 @@ export async function collectPlatform(platform, { countries, sorts, fetchPass, l
       // Done, unless it filled a smaller cap than today's: then there may be
       // more to collect, and the same seeded pass order gives the same result
       // as collecting at today's cap from the start.
+      // An app with a failed pass (throttling, a dropped connection) is
+      // collected again so a temporary error does not leave a hole.
       const meta = readJson(metaFile);
       const oldCap = meta.cap ?? 1600;
-      if (meta.kept < oldCap || oldCap >= CAP_PER_APP) {
+      const failed = meta.passes.some((p) => p.error);
+      if (!failed && (meta.kept < oldCap || oldCap >= CAP_PER_APP)) {
         total += meta.kept;
         done++;
         return;
