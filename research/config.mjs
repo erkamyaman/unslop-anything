@@ -69,7 +69,13 @@ export const MIN_WORDS = 4;
 // Classification sample: up to this many reviews per app, drawn at random.
 export const SAMPLE_PER_APP = 30;
 
-// Classifier. Validation re-labels a random subset at higher effort.
+// Reference sample for hand labelling, per store, and the size of each
+// labelling batch.
+export const GOLD_PER_PLATFORM = 600;
+export const GOLD_BATCH = 100;
+
+// Optional: classify the per-app sample with Claude through the Batch API
+// (needs ANTHROPIC_API_KEY). Validation re-labels a subset at higher effort.
 export const MODEL = "claude-opus-5-5";
 export const EFFORT = "low";
 export const VALIDATION_SIZE = 500;

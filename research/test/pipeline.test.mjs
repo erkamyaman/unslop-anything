@@ -7,7 +7,8 @@ import { parsePlayReview } from "../3-collect-play.mjs";
 import { passesFor, windowStart } from "../lib/collect.mjs";
 import { population, words } from "../4-sample.mjs";
 import { kappa, agreement, parseCsv } from "../6-validate.mjs";
-import { reviewShare, appShare, bootstrap, indicators } from "../7-analyze.mjs";
+import { reviewShare, appShare, wilson, accuracy, correct, has } from "../7-analyze.mjs";
+import { classifyByRules, isEnglish } from "../lib/rules.mjs";
 import { parseLabel, requestParams } from "../lib/claude.mjs";
 import { THEME_IDS, SCHEMA } from "../lib/taxonomy.mjs";
 import { APPLE_COUNTRIES, APPLE_SORTS, WINDOW_MONTHS } from "../config.mjs";
@@ -105,21 +106,62 @@ test("hand-label sheets survive commas, quotes, and newlines", () => {
   assert.deepStrictEqual(rows[1], ["s1", 'He said "no", then\nleft']);
 });
 
-test("review share weights reviews and app share weights apps", () => {
-  const big = { rows: Array.from({ length: 10 }, () => ({ w: 100, y: { crash: 1 } })) };
-  const small = { rows: Array.from({ length: 10 }, () => ({ w: 1, y: { crash: 0 } })) };
-  assert.ok(Math.abs(reviewShare([big, small], "crash") - 100 / 101) < 1e-9);
+test("review share counts reviews and app share counts apps", () => {
+  const big = { n: 100, k: { crash: 100 } };
+  const small = { n: 10, k: { crash: 0 } };
+  assert.ok(Math.abs(reviewShare([big, small], "crash") - 100 / 110) < 1e-9);
   assert.strictEqual(appShare([big, small], "crash"), 0.5);
-  const [lo, hi] = bootstrap([big, small], (s) => appShare(s, "crash"), rng(3), 200);
-  assert.ok(lo >= 0 && hi <= 1 && lo <= 0.5 && hi >= 0.5);
 });
 
-test("indicators include the derived groups", () => {
-  const y = indicators({ complaint: true, themes: ["crash", "ui_change"] });
-  assert.strictEqual(y.crash, 1);
-  assert.strictEqual(y.stability, 1);
-  assert.strictEqual(y.design_addressable, 1);
-  assert.strictEqual(y.paywall_pricing, 0);
+test("Wilson intervals contain the estimate and stay in 0..1", () => {
+  const [lo, hi] = wilson(30, 600);
+  assert.ok(lo < 0.05 && hi > 0.05 && lo > 0 && hi < 1);
+  const [z0, z1] = wilson(0, 50);
+  assert.strictEqual(z0, 0);
+  assert.ok(z1 > 0);
+});
+
+test("rule accuracy and the Rogan-Gladen correction", () => {
+  const pairs = [
+    [["crash"], ["crash"]],
+    [["crash"], []],
+    [[], ["crash"]],
+    [[], []],
+    [[], []],
+    [["crash"], ["crash"]],
+  ];
+  const a = accuracy(pairs, "crash");
+  assert.strictEqual(a.positives, 3);
+  assert.ok(Math.abs(a.sensitivity - 2 / 3) < 1e-9);
+  assert.ok(Math.abs(a.specificity - 2 / 3) < 1e-9);
+  // A perfect classifier needs no correction; a chance-level one cannot be corrected.
+  assert.ok(Math.abs(correct(0.3, 1, 1) - 0.3) < 1e-12);
+  assert.ok(Number.isNaN(correct(0.3, 0.5, 0.55)));
+  // Observed 0.36 from a true 0.3 with se 0.8 and sp 0.9: 0.3*0.8 + 0.7*0.1 = 0.31.
+  assert.ok(Math.abs(correct(0.31, 0.8, 0.9) - 0.3) < 1e-9);
+});
+
+test("groups combine themes", () => {
+  assert.ok(has(["crash", "ui_change"], "stability"));
+  assert.ok(has(["crash", "ui_change"], "design_addressable"));
+  assert.ok(!has(["paywall_pricing"], "design_addressable"));
+});
+
+test("rules tell crashes, lag, and moved controls apart", () => {
+  const t = (text, rating = 1) => classifyByRules({ title: "", text, rating }).themes;
+  assert.deepStrictEqual(t("App crashes immediately on launch after the Oct 2 update"), ["crash"], "a crash after an update is not a UI change");
+  assert.ok(t("It's unfortunate the app lags, there are many problems").includes("performance"));
+  assert.ok(t("New update has removed its best features, bring back the old layout").includes("ui_change"));
+  assert.ok(t("Can't get logged in, it goes to a white screen").includes("login_account"));
+  assert.ok(t("The adverts are very annoying and pop up constantly", 3).includes("interruption"));
+  assert.ok(!t("I added this to my list and it works okay", 3).includes("interruption"), "add is not ads");
+  assert.deepStrictEqual(t("Worst thing I have ever downloaded honestly"), ["other"]);
+});
+
+test("English detection", () => {
+  assert.ok(isEnglish("The app keeps crashing when I open it"));
+  assert.ok(!isEnglish("La aplicación se cierra cada vez que la abro"));
+  assert.ok(!isEnglish("ऐप बार बार बंद हो जाता है"));
 });
 
 test("labels parse only from finished, valid responses", () => {

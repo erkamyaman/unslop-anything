@@ -4,10 +4,14 @@
 // Sample: up to SAMPLE_PER_APP reviews per app, drawn at random. Each sampled
 // review carries a weight (the app's population over its sample size) so
 // estimates can be made per review as well as per app.
-// Output: data/sample.jsonl.gz, data/population.json
+// Reference sample: GOLD_PER_PLATFORM reviews per store, drawn uniformly from
+// the store's whole population, for labelling by hand. It measures the rule
+// classifier's accuracy and gives a direct estimate of each theme's share.
+// Output: data/sample.jsonl.gz, data/population.json, data/gold/sample.jsonl.gz,
+//         data/gold/batch-NN.json (what a labeller reads)
 
 import path from "node:path";
-import { MAX_STARS, MIN_WORDS, SAMPLE_PER_APP, SEED } from "./config.mjs";
+import { MAX_STARS, MIN_WORDS, SAMPLE_PER_APP, SEED, GOLD_PER_PLATFORM, GOLD_BATCH } from "./config.mjs";
 import { DATA, dataPath, readJson, readJsonlGz, listFiles, writeJsonlGz, writeJson, rng, shuffle, hash, log } from "./lib/util.mjs";
 
 export const words = (s) => (s.match(/[\p{L}\p{N}']+/gu) || []).length;
@@ -33,6 +37,7 @@ async function main() {
   const sample = [];
   const perApp = [];
   const totals = { collected: 0, lowRated: 0, population: 0 };
+  const everyone = { apple: [], play: [] };
   for (const platform of ["apple", "play"]) {
     for (const file of listFiles(path.join(DATA, "raw", platform), ".jsonl.gz")) {
       const rows = readJsonlGz(file);
@@ -40,6 +45,7 @@ async function main() {
       const info = appInfo.get(`${platform}:${appId}`);
       if (!info) continue;
       const pop = population(rows);
+      for (const r of pop) everyone[platform].push({ r, appId, info });
       const take = shuffle(pop, rng(SEED ^ hash(`sample:${platform}:${appId}`))).slice(0, SAMPLE_PER_APP);
       const weight = take.length ? pop.length / take.length : 0;
       for (const r of take) {
@@ -61,8 +67,30 @@ async function main() {
     }
   }
   writeJsonlGz(dataPath("sample.jsonl.gz"), sample);
+
+  const gold = [];
+  for (const platform of ["apple", "play"]) {
+    const drawn = shuffle(everyone[platform], rng(SEED ^ hash(`gold:${platform}`))).slice(0, GOLD_PER_PLATFORM);
+    for (const { r, appId, info } of drawn) {
+      gold.push({
+        key: `g${platform[0]}${gold.length}`,
+        review: { id: r.id, platform, rating: r.rating, title: r.title, text: r.text, date: r.date, country: r.country, sort: r.sort },
+        app: appId,
+        platform,
+        category: info.category,
+        band: info.band,
+      });
+    }
+  }
+  // Interleave the stores so every labelling batch holds both.
+  const order = shuffle(gold, rng(SEED ^ hash("gold:order")));
+  writeJsonlGz(dataPath("gold", "sample.jsonl.gz"), order);
+  for (let i = 0; i < order.length; i += GOLD_BATCH) {
+    const batch = order.slice(i, i + GOLD_BATCH).map((g) => ({ key: g.key, store: g.platform === "apple" ? "App Store" : "Google Play", stars: g.review.rating, title: g.review.title, text: g.review.text }));
+    writeJson(dataPath("gold", `batch-${String(i / GOLD_BATCH).padStart(2, "0")}.json`), batch);
+  }
   writeJson(dataPath("population.json"), { totals, sampled: sample.length, perApp });
-  log(`collected ${totals.collected}, low-rated ${totals.lowRated}, population ${totals.population}, sample ${sample.length}`);
+  log(`collected ${totals.collected}, low-rated ${totals.lowRated}, population ${totals.population}, sample ${sample.length}, reference ${gold.length}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

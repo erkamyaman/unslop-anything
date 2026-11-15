@@ -1,6 +1,6 @@
 // Step 2: App Store reviews from Apple's public customer-reviews feed.
 // Output: data/raw/apple/<app id>.jsonl.gz and .meta.json, one pair per app.
-// Usage: node 2-collect-apple.mjs [--limit N]
+// Usage: node 2-collect-apple.mjs [--limit N] [--concurrency N]
 
 import { APPLE_COUNTRIES, APPLE_SORTS, REQUEST_DELAY_MS } from "./config.mjs";
 import { collectPlatform } from "./lib/collect.mjs";
@@ -32,5 +32,5 @@ async function* fetchPass(app, { country, sort }) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  await collectPlatform("apple", { countries: APPLE_COUNTRIES, sorts: APPLE_SORTS, fetchPass, limit: args().limit });
+  await collectPlatform("apple", { countries: APPLE_COUNTRIES, sorts: APPLE_SORTS, fetchPass, limit: args().limit, concurrency: args().concurrency });
 }

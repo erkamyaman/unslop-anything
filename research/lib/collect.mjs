@@ -24,13 +24,13 @@ export function windowStart(now = new Date()) {
 // later pages are too.
 const NEWEST_FIRST = new Set(["mostrecent", "NEWEST"]);
 
-export async function collectPlatform(platform, { countries, sorts, fetchPass, limit }) {
+export async function collectPlatform(platform, { countries, sorts, fetchPass, limit, concurrency }) {
   const since = windowStart();
   const { apps } = readJson(dataPath("apps.json"));
   const mine = apps.filter((a) => a.platform === platform).slice(0, limit ? Number(limit) : undefined);
   let done = 0;
   let total = 0;
-  await pool(mine, CONCURRENCY, async (app) => {
+  await pool(mine, Number(concurrency) || CONCURRENCY, async (app) => {
     const out = dataPath("raw", platform, `${app.id}.jsonl.gz`);
     const metaFile = dataPath("raw", platform, `${app.id}.meta.json`);
     if (fs.existsSync(out) && fs.existsSync(metaFile)) {

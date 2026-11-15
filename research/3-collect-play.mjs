@@ -1,6 +1,6 @@
 // Step 3: Google Play reviews through google-play-scraper.
 // Output: data/raw/play/<package>.jsonl.gz and .meta.json, one pair per app.
-// Usage: node 3-collect-play.mjs [--limit N]
+// Usage: node 3-collect-play.mjs [--limit N] [--concurrency N]
 
 import gplay from "google-play-scraper";
 import { PLAY_COUNTRIES, PLAY_SORTS, REQUEST_DELAY_MS } from "./config.mjs";
@@ -52,5 +52,5 @@ async function* fetchPass(app, { country, sort }) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  await collectPlatform("play", { countries: PLAY_COUNTRIES, sorts: PLAY_SORTS, fetchPass, limit: args().limit });
+  await collectPlatform("play", { countries: PLAY_COUNTRIES, sorts: PLAY_SORTS, fetchPass, limit: args().limit, concurrency: args().concurrency });
 }

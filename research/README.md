@@ -24,25 +24,28 @@ All parameters live in [config.mjs](config.mjs).
 
 **Population.** Reviews of 3 stars or fewer with at least 4 words, after removing duplicate texts within an app.
 
-**Sample.** Up to 30 reviews per app, drawn at random from its population. Each sampled review carries a weight: the app's population divided by its sample size.
+**Themes.** Fifteen complaint themes with written boundaries, in [lib/taxonomy.mjs](lib/taxonomy.mjs). Crashes, slowness, and bugs are separate themes. A review can state several. Labels describe what the reviewer says, not a guess at the cause.
 
-**Classification.** Claude (`claude-opus-5-5`, low effort, structured output) labels each sampled review through the Message Batches API: whether it is in English, whether it complains, every theme it states, and its main theme. The themes and their boundaries are in [lib/taxonomy.mjs](lib/taxonomy.mjs). Crashes, slowness, and bugs are separate themes. Labels describe what the reviewer says, not a guess at the cause. Non-English reviews are set aside.
+**Reference sample.** 600 reviews per store, drawn uniformly at random from the store's whole population, labelled one by one against the theme definitions: English or not, complaint or not, every theme stated. These labels are the reference: they give a direct estimate of each theme's share with a Wilson 95% interval, and they measure the rules below.
 
-**Validation.** 500 labelled reviews, drawn at random, are labelled again at high effort, and agreement is measured per theme with Cohen's kappa. The same 500 are exported as a sheet for a person to label by hand; `node 6-validate.mjs --score` then measures both model runs against the person.
+**Rules on everything.** A rule classifier ([lib/rules.mjs](lib/rules.mjs)) labels every review in the population. It covers every app, which the reference sample cannot, but it makes mistakes. Its sensitivity, specificity, precision, and Cohen's kappa per theme are measured against the reference labels and published.
 
-**Estimates.** For each theme and store, two numbers:
+**Corrected estimates.** The rule shares are corrected for the rules' measured errors with the Rogan-Gladen estimator. Two numbers per theme and store:
 
-- **Review share:** the weighted share of low-rated reviews that state the theme.
-- **App share:** the average over apps of each app's share, so every app counts once.
+- **Review share:** the share of low-rated reviews that state the theme.
+- **App share:** the average over apps of each app's share, so every app counts once and the busiest apps cannot set the result.
 
-95% intervals come from a bootstrap that resamples apps, because reviews of the same app are not independent. The stores are reported separately because their review samples cover different time spans.
+95% intervals come from a bootstrap that resamples both the reference sample and the apps, because reviews of the same app are not independent. Where the rules are close to chance for a theme, no correction is reported. The stores are reported separately because their reviews cover different time spans.
+
+**Optional: Claude labels.** With an `ANTHROPIC_API_KEY`, `5-classify.mjs` labels up to 30 reviews per app with Claude through the Message Batches API, and `6-validate.mjs` re-labels 500 of them at higher effort to measure agreement. The published results do not use this path.
 
 ## Limits
 
 - **Low-rated reviews are not all users.** People who leave a 1-star review are not a random sample of users, and many unhappy users never write one.
 - **Play reaches less far back.** Google Play has no date filter. For busy apps, newest-first reviews cover hours, so Play leans on most-helpful order and its windows are shorter than Apple's. The results report the median span covered per app.
 - **Top charts only.** Apps outside the top 100 of their category are not in the study.
-- **Labels are a model's.** The validation results say how far to trust each theme. Themes with low agreement are reported as such.
+- **One labeller.** The reference sample was labelled once, by one labeller, against written definitions. A second independent labeller would measure how consistent those definitions are; the sheet in `data/gold` makes that possible.
+- **Rules miss context.** Sarcasm, negation, and indirect complaints slip past them. The correction fixes the totals, not individual reviews.
 - **What reviews cannot show.** A review says an app feels slow; it does not measure it.
 
 ## Running it
@@ -52,13 +55,13 @@ npm install
 node 1-apps.mjs              # choose apps            -> data/apps.json
 node 2-collect-apple.mjs     # App Store reviews      -> data/raw/apple/
 node 3-collect-play.mjs      # Google Play reviews    -> data/raw/play/
-node 4-sample.mjs            # population and sample  -> data/sample.jsonl.gz
-node 5-classify.mjs --try 5  # check the setup on 5 reviews
-node 5-classify.mjs          # label the sample       -> data/labels.jsonl.gz
-node 6-validate.mjs          # agreement check        -> results/validation.json
-node 7-analyze.mjs           # estimates              -> results/summary.md
+node 4-sample.mjs            # population, reference sample, batches to label -> data/gold/
+node 5-rules.mjs             # rule labels for every review                   -> data/rules.jsonl.gz
+# label data/gold/batch-NN.json into data/gold/labels-NN.jsonl, one JSON object per line:
+# {"key": "...", "english": true, "complaint": true, "themes": ["crash"], "primary": "crash"}
+node 7-analyze.mjs           # estimates                                      -> results/summary.md
 ```
 
-Collection and classification resume where they stopped. Classification needs an `ANTHROPIC_API_KEY`. Charts and reviews change daily, so a re-run gives a fresh sample, not the same reviews; the method and seed stay fixed.
+Collection resumes where it stopped. The optional Claude path (`5-classify.mjs`, `6-validate.mjs`) needs an `ANTHROPIC_API_KEY`. Charts and reviews change daily, so a re-run gives a fresh sample, not the same reviews; the method and seed stay fixed.
 
 `data/` is not committed. `results/` is.
