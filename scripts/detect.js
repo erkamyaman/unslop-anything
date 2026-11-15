@@ -121,6 +121,10 @@ function blankComments(text, stack) {
       i = stop;
       continue;
     }
+    if (c === "/" && stack === "js" && isRegexStart(text, i)) {
+      i = skipRegex(text, i);
+      continue;
+    }
     if (c === '"' || c === "`" || (c === "'" && stack !== "swift")) {
       // An apostrophe between letters is prose (JSX text such as Don't), not a string.
       if (c === "'" && /[A-Za-z]/.test(text[i - 1] || "") && /[A-Za-z]/.test(next || "")) { i++; continue; }
@@ -129,6 +133,36 @@ function blankComments(text, stack) {
     i++;
   }
   return out.join("");
+}
+
+// A slash starts a regex literal when it follows an operator, an opening
+// bracket, a keyword such as return, or the start of the text.
+function isRegexStart(text, i) {
+  let j = i - 1;
+  while (j >= 0 && (text[j] === " " || text[j] === "\t")) j--;
+  if (j < 0 || text[j] === "\n") return true;
+  // Not after <, > or }: those are JSX closing tags and text such as {a}/{b}.
+  if ("(,=:[!&|?{;+-*%~^".includes(text[j])) return true;
+  return /\b(?:return|typeof|case|do|else|in|of|void|yield|await)$/.test(text.slice(Math.max(0, j - 6), j + 1));
+}
+
+// Index just past a regex literal starting at i (flags included). Stops at
+// the end of the line if the literal is not closed.
+function skipRegex(text, i) {
+  let inClass = false;
+  for (let k = i + 1; k < text.length; k++) {
+    const c = text[k];
+    if (c === "\n") return k;
+    if (c === "\\") { k++; continue; }
+    if (c === "[") inClass = true;
+    else if (c === "]") inClass = false;
+    else if (c === "/" && !inClass) {
+      k++;
+      while (k < text.length && /[a-z]/i.test(text[k])) k++;
+      return k;
+    }
+  }
+  return text.length;
 }
 
 function lineStarts(text) {
@@ -374,7 +408,8 @@ const rules = [
           if (end === -1) continue;
           const body = code.slice(m.index, m.index + end);
           // Horizontal scrollers are usually short chip rows and carousels.
-          if (/\bhorizontal\b/.test(body.slice(0, body.indexOf(">") + 1))) continue;
+          const props = body.slice(0, body.indexOf(">") + 1);
+          if (/\bhorizontal\b(?!\s*=\s*\{\s*false\s*\})/.test(props)) continue;
           if (/\.map\(/.test(body)) hits.push(m.index);
         }
       }
@@ -569,7 +604,14 @@ const rules = [
 // ---------- scanning ----------
 
 function loadConfig(root) {
-  const candidates = [path.join(root, ".unslopovich", "config.json"), path.join(process.cwd(), ".unslopovich", "config.json")];
+  // The nearest project config above the scan target wins; the current
+  // directory's config is the last fallback.
+  const candidates = [];
+  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
+    candidates.push(path.join(dir, ".unslopovich", "config.json"));
+    if (path.dirname(dir) === dir) break;
+  }
+  candidates.push(path.join(process.cwd(), ".unslopovich", "config.json"));
   for (const file of candidates) {
     try {
       const raw = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -637,7 +679,7 @@ function ignoredByComment(lines, line, ruleId) {
 function scanSource(text, file, options = {}) {
   const stack = options.stack || STACK_BY_EXT[path.extname(file).toLowerCase()];
   if (!stack) return [];
-  if (stack === "xml" && !/<(?:LinearLayout|ConstraintLayout|TextView|FrameLayout|RelativeLayout|manifest|application|shape|gradient|androidx\.)/.test(text)) return [];
+  if (stack === "xml" && !/<(?:LinearLayout|ConstraintLayout|TextView|FrameLayout|RelativeLayout|manifest|application|shape|gradient|resources|androidx\.)/.test(text)) return [];
   const code = blankComments(text, stack);
   const starts = lineStarts(text);
   const lines = text.split("\n");
@@ -668,6 +710,7 @@ function scanSource(text, file, options = {}) {
 
 function scan(targets, opts = {}) {
   const findings = [];
+  const unreadable = [];
   let filesScanned = 0;
   for (const target of targets) {
     const root = path.resolve(target);
@@ -682,6 +725,7 @@ function scan(targets, opts = {}) {
       try {
         text = fs.readFileSync(file, "utf8");
       } catch {
+        unreadable.push(rel);
         continue;
       }
       if (text.length > 1_000_000) continue;
@@ -690,7 +734,7 @@ function scan(targets, opts = {}) {
     }
   }
   findings.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.file.localeCompare(b.file) || a.line - b.line);
-  return { version: VERSION, filesScanned, findings };
+  return { version: VERSION, filesScanned, unreadable, findings };
 }
 
 // ---------- output ----------
@@ -774,6 +818,10 @@ function main(argv) {
     return 1;
   }
   console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
+  if (result.unreadable.length) {
+    console.error(`Could not read ${result.unreadable.length} file(s): ${result.unreadable.join(", ")}. The scan is incomplete.`);
+    return 1;
+  }
   return result.findings.length ? 2 : 0;
 }
 

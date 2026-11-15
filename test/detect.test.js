@@ -116,3 +116,64 @@ test("exit codes and json shape", () => {
     console.error = err;
   }
 });
+
+test("a quote inside a regex literal does not hide a real comment", () => {
+  assert.deepStrictEqual(scanSource('const quote = /"/g; // Oops\n', "a.ts"), []);
+  assert.deepStrictEqual(scanSource("<Text>Hi</Text> // Oops\n", "a.tsx"), []);
+  assert.deepStrictEqual(scanSource('const r = a / b; const s = "Oops";\n', "a.ts").map((f) => f.rule), ["oops-error"]);
+});
+
+test("horizontal={false} is still a vertical list", () => {
+  const src = "<ScrollView horizontal={false}>{items.map((i) => <Row key={i} />)}</ScrollView>";
+  assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => f.rule), ["unvirtualized-list"]);
+});
+
+test("Android color resources reach template-theme", () => {
+  const src = '<resources>\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
+  assert.deepStrictEqual(scanSource(src, "colors.xml").map((f) => f.rule), ["template-theme"]);
+});
+
+test("XML ignore comments work", () => {
+  const src = '<resources>\n  <!-- unslopovich-ignore template-theme -->\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
+  assert.deepStrictEqual(scanSource(src, "colors.xml"), []);
+});
+
+test("project config is found above the scan target", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-"));
+  fs.mkdirSync(path.join(root, ".unslopovich"));
+  fs.writeFileSync(path.join(root, ".unslopovich", "config.json"), JSON.stringify({ ignoreRules: ["oops-error"] }));
+  fs.mkdirSync(path.join(root, "src", "screens"), { recursive: true });
+  fs.writeFileSync(path.join(root, "src", "screens", "A.ts"), 'const a = "Oops";\n');
+  try {
+    assert.deepStrictEqual(scan([path.join(root, "src", "screens")]).findings, []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable file makes the scan fail, not pass", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-"));
+  const file = path.join(root, "A.ts");
+  fs.writeFileSync(file, "const a = 1;\n");
+  const read = fs.readFileSync;
+  fs.readFileSync = (f, ...rest) => {
+    if (f === file) throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+    return read(f, ...rest);
+  };
+  const err = console.error;
+  const log = console.log;
+  console.error = () => {};
+  console.log = () => {};
+  try {
+    assert.strictEqual(main([file]), 1);
+  } finally {
+    fs.readFileSync = read;
+    console.error = err;
+    console.log = log;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

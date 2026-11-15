@@ -112,4 +112,4 @@ You can only suspect these from code. See [performance.md](performance.md).
 
 - A hit is a lead. Open the file and confirm it is real in this product before you report it.
 - No hit means nothing. Most of sections 1, 2, and 6 cannot be seen in code at all.
-- Silence a confirmed false positive with `// unslopovich-ignore <rule-id>` on that line or the line above, or list the rule under `ignoreRules` in `.unslopovich/config.json` when the chart accepts it project-wide.
+- Silence a confirmed false positive with `// unslopovich-ignore <rule-id>` on that line or the line above. In XML and HTML files, where `//` is not a comment, use `<!-- unslopovich-ignore <rule-id> -->` instead. Or list the rule under `ignoreRules` in `.unslopovich/config.json` when the chart accepts it project-wide.

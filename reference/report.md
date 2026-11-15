@@ -78,4 +78,4 @@ List what changed by screen. Capture before and after screenshots of the same sc
 
 ## Saving the visit
 
-Write the report to `.unslopovich/visits/<YYYY-MM-DD>-<scope>.md`, with the scope as a short slug of the screens ("home", "checkout-flow"). `follow-up` reads the newest visit for the same scope and adds a line per dimension: `Task path 2 -> 3`. Skip saving if `.unslopovich/chart.md` says `visits: off`.
+Write the report to `.unslopovich/visits/<YYYY-MM-DD-HHmm>-<scope>.md`, with the local time in 24-hour form and the scope as a short slug of the screens ("home", "checkout-flow"). If that file already exists, add `-2`, `-3`, and so on before `.md`; never overwrite a visit. File names sort by time, so `follow-up` reads the last file for the same scope in name order and adds a line per dimension: `Task path 2 -> 3`. Skip saving if `.unslopovich/chart.md` says `visits: off`.

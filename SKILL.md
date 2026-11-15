@@ -26,6 +26,13 @@ With no command and no clear intent, ask which one in a single line. With a clea
 
 ## Workflow
 
+Each command runs only the steps it needs:
+
+- `review` and `follow-up`: steps 1 to 8, then 11. No edits.
+- `treat`: every step.
+- `scan`: steps 1, 2, and 7, then triage the hits into the report format and stop. No screenshots, no scores, no saved visit.
+- `chart`: steps 1 and 2, then write the chart as [reference/chart.md](reference/chart.md) describes and stop.
+
 1. **Read the chart.** If `.unslopovich/chart.md` exists, read it: platforms, stack, top tasks, brand decisions, accepted exceptions. Do not re-flag anything it accepts. If it is missing, infer what you can from the code and offer `chart` at the end instead of blocking on it. See [reference/chart.md](reference/chart.md).
 2. **Identify the stack and platforms.** Read the project config. Note whether the app ships on iOS, Android, or both, then read the matching guides: [reference/ios.md](reference/ios.md), [reference/android.md](reference/android.md), and for cross-platform stacks [reference/stacks.md](reference/stacks.md).
 3. **Set the scope.** Use the screens the user named. If none, take the first-run path and the main screen a returning user sees. Name the one or two tasks people open those screens to do. Do not sweep the whole app unasked.
@@ -36,7 +43,7 @@ With no command and no clear intent, ask which one in a single line. With a clea
 8. **Diagnose.** Check the tells in [reference/tells.md](reference/tells.md) and performance with [reference/performance.md](reference/performance.md), then score and write the report as [reference/report.md](reference/report.md) describes. Rank anything that blocks or slows a task above anything visual.
 9. **Treat at the source.** For `treat` only. Read [reference/treatment.md](reference/treatment.md) before the first edit. Fix tokens and shared components first, then screens.
 10. **Verify.** Build and re-check the changed screens in light, dark, the largest text size, and every screen size the app supports. Tap every changed control. Run the detector again on the changed files. State plainly what you could not check.
-11. **Record the visit.** Save the report to `.unslopovich/visits/<YYYY-MM-DD>-<scope>.md` unless the chart opts out. Mention the path in one line.
+11. **Record the visit.** Save the report to `.unslopovich/visits/<YYYY-MM-DD-HHmm>-<scope>.md` unless the chart opts out. Mention the path in one line.
 
 ## The short list
 

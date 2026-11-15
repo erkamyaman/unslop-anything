@@ -75,7 +75,7 @@ npx unslopovich detect --list-rules           # every rule and its fix
 
 It catches purple gradients and the project template's leftover purple, nested cards, decorative status dots, gradient text, glow shadows, emoji icons, unvirtualized lists, text that ignores the user's font size, disabled back gestures, hamburger menus, hover in a touch app, keyboards covering inputs, invented stats, and "Oops! Something went wrong".
 
-Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslopovich-ignore <rule-id>`, or a whole rule in `.unslopovich/config.json`:
+Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslopovich-ignore <rule-id>` (`<!-- unslopovich-ignore <rule-id> -->` in XML), or a whole rule in `.unslopovich/config.json`:
 
 ```json
 { "ignoreRules": ["status-dot"], "ignorePaths": ["src/legacy/"] }
