@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like v2.0.0 to publish that version to npm and create the
+# Push a tag like v2.0.0 to publish that version to npm (trusted publishing,
+# no token) and create the
 # GitHub release from docs/releases/<tag>.md.
 on:
   push:
@@ -34,10 +35,13 @@ jobs:
 
       - run: npm test
 
+      # Trusted publishing: npm trusts this workflow through OpenID Connect, so
+      # no token is stored anywhere. It needs npm 11.5.1 or newer.
+      - name: Update npm
+        run: npm install -g npm@latest
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
 
       - name: Create the GitHub release
         run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "docs/releases/$GITHUB_REF_NAME.md" --verify-tag
