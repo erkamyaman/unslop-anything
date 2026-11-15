@@ -35,6 +35,13 @@ These are leads. Report them under Noticeable with "suspected", not as measured 
 - Every SDK initialized before the first frame
 - Fonts, remote config, and analytics blocking the first screen
 
+**Web**
+- `<img>` without `width` and `height` or an aspect ratio, so the page jumps as images load
+- Hero images not preloaded, or every image loaded eagerly
+- Web fonts blocking text with no `font-display`, or four families and weights where one would do
+- Client components and large libraries shipped for content that could render on the server
+- Layout read and written in the same frame inside scroll handlers
+
 **Animation**
 - JS-driven animations on React Native where the native driver or Reanimated is available
 - Layout animations on every list row
@@ -50,6 +57,7 @@ Only when the user wants it and you can run the app. Use release or profile buil
 | React Native, Expo | Perf Monitor, React DevTools profiler, Flashlight on Android | JS and UI thread FPS while scrolling, commit durations |
 | Flutter | DevTools Performance view in profile mode | Frame build and raster times over 16 ms, shader jank |
 | Ionic, Capacitor | Safari Web Inspector or Chrome DevTools against the device WebView | Long tasks, layout shifts, scroll FPS |
+| Web | Lighthouse in a production build, the DevTools Performance panel with CPU throttling, field data from the Chrome UX Report when the site has traffic | LCP, INP, and CLS; long tasks over 50 ms; bundle size per route |
 
 ## What to write
 

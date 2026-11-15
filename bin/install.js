@@ -10,7 +10,7 @@ if (args[0] === "detect") {
   return;
 }
 
-const usage = "Usage:\n  npx unslopovich [--dir <skills folder>]   install the skill\n  npx unslopovich detect [paths...]         scan mobile source for slop";
+const usage = "Usage:\n  npx unslopovich [--dir <skills folder>]   install the skill\n  npx unslopovich detect [paths...]         scan mobile and web source for slop";
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(usage);

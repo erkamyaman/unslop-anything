@@ -46,7 +46,7 @@ test("Flutter slop is caught", () => {
 });
 
 test("every rule has a fixture that triggers it", () => {
-  const all = new Set(scan([path.join(fixtures, "slop")]).findings.map((f) => f.rule));
+  const all = new Set(scan([path.join(fixtures, "slop")], { platform: "mobile" }).findings.map((f) => f.rule));
   for (const rule of rules) assert.ok(all.has(rule.id), `no fixture for ${rule.id}`);
 });
 
@@ -176,4 +176,32 @@ test("an unreadable file makes the scan fail, not pass", () => {
     console.log = log;
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("web slop is caught", () => {
+  const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
+  for (const id of [
+    "slop-gradient", "gradient-text", "tracked-caps-label", "unverified-claim", "img-no-alt", "decorative-pulse",
+    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled",
+  ]) assert.ok(found.has(id), `missing ${id}`);
+});
+
+test("clean web fixtures produce no findings", () => {
+  const { findings, filesScanned } = scan([path.join(fixtures, "clean-web")]);
+  assert.strictEqual(filesScanned, 2);
+  assert.deepStrictEqual(findings, []);
+});
+
+test("mobile-only rules stay quiet on web projects", () => {
+  const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
+  assert.ok(!found.has("hover-only"));
+  const src = '<a onMouseEnter={x}>Docs</a>\nconst Nav = createDrawerNavigator();\n';
+  assert.deepStrictEqual(scanSource(src, "a.tsx", { kind: "web" }).map((f) => f.rule), []);
+  assert.deepStrictEqual(scanSource(src, "a.tsx", { kind: "mobile" }).map((f) => f.rule).sort(), ["drawer-nav", "hover-only"]);
+  assert.deepStrictEqual(scanSource(src, "a.tsx", { kind: "universal" }).map((f) => f.rule), ["drawer-nav"]);
+});
+
+test("--platform overrides the detected project kind", () => {
+  const found = new Set(scan([path.join(fixtures, "slop", "web")], { platform: "mobile" }).findings.map((f) => f.rule));
+  assert.ok(found.has("hover-only"));
 });

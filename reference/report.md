@@ -17,7 +17,7 @@ Score each dimension 0 to 4 from what you saw. A score needs a reason: the worst
 |---|---|---|---|
 | Task path | Can people do what they came to do, fast, with controls where they expect them and nothing in the way? | Core task blocked or interrupted | Core task direct, thumb reachable, uninterrupted |
 | Truth | Do labels, numbers, and states say what is true? | Errors shown as empty, invented data | Every number and state is real and labeled |
-| Native fit | Navigation, gestures, controls, and safe areas as the platform expects | A website in a phone | A fluent user trusts every screen |
+| Native fit | Navigation, gestures, controls, and safe areas as the platform expects. On the web: real buttons and links, URLs and back that work, focus, zoom, and native form controls | A website in a phone, or a web page that breaks the web | A fluent user trusts every screen |
 | States and input | Loading, empty, error, offline, pressed, keyboard | Happy path only | Every state designed and reachable |
 | Access | Targets, contrast, text scaling, screen reader labels and order | Unusable with a screen reader or large text | Labeled, ordered, scales cleanly |
 | Specificity | Does it look like this product, not a template, old or new? | Could be any app; generated tells throughout | Built from this product's content and voice |
@@ -55,6 +55,9 @@ Minor
 Ask first
 - <file:line> <what is wrong> -> <proposed fix and what it would change for users>
 
+Waived
+- <rule or tell> kept because <reason>, recorded in the chart
+
 Worth keeping
 - <what already works and should survive the treatment>
 
@@ -63,6 +66,8 @@ Not checked
 ```
 
 Leave out empty sections, except Not checked.
+
+If the screen is healthy, the verdict says so and the report is short. A report that invents problems to fill its sections is its own kind of slop.
 
 ## The verdict line
 

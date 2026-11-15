@@ -22,6 +22,8 @@ const STACK_BY_EXT = {
   ".js": "js",
   ".mjs": "js",
   ".vue": "web",
+  ".svelte": "web",
+  ".astro": "web",
   ".html": "web",
   ".xml": "xml",
   ".css": "css",
@@ -227,6 +229,10 @@ const rules = [
         const snippet = code.slice(m.index, m.index + 400);
         if (hexColors(snippet).some(isSlopHue) || SLOP_COLOR_NAME.test(snippet.slice(0, 250))) hits.push(m.index);
       }
+      // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
+      for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
+        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(m[0])) hits.push(m.index);
+      }
       return hits;
     },
   },
@@ -238,7 +244,7 @@ const rules = [
     message: "Gradient-filled text.",
     fix: "Emphasize with weight or size from the type scale, in a solid theme color.",
     find({ code }) {
-      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|brush\s*=\s*Brush\.\w+Gradient|background-clip:\s*text|-webkit-background-clip:\s*text/;
+      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|brush\s*=\s*Brush\.\w+Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -294,7 +300,9 @@ const rules = [
           if (new RegExp(`height:\\s*${n}\\b`).test(around) && radius && +radius[1] >= n / 2) hits.push(m.index);
         }
         for (const m of matches(/["'`][^"'`\n]*\b(?:[wh]|size)-(?:1|1\.5|2|2\.5|3)\b[^"'`\n]*["'`]/, code)) {
-          if (/\brounded-full\b/.test(m[0]) && /\b(?:size-|w-(?:1|1\.5|2|2\.5|3)\b[^"'`]*\bh-|h-(?:1|1\.5|2|2\.5|3)\b[^"'`]*\bw-)/.test(m[0])) hits.push(m.index);
+          const dim = "(?:1|1\\.5|2|2\\.5|3)\\b";
+          const both = new RegExp(`\\bw-${dim}`).test(m[0]) && new RegExp(`\\bh-${dim}`).test(m[0]);
+          if (/\brounded-full\b/.test(m[0]) && (both || new RegExp(`\\bsize-${dim}`).test(m[0]))) hits.push(m.index);
         }
       }
       if (stack === "swift") {
@@ -388,6 +396,8 @@ const rules = [
       const hits = [];
       for (const m of matches(re, code)) {
         if ((m[1] || m[2]) === "✨") continue; // reported by sparkle-icon
+        const lineStart = code.lastIndexOf("\n", m.index) + 1;
+        if (/\b(?:console|logger|log)\.\w+\(|new Response\(|throw new/.test(code.slice(lineStart, m.index))) continue;
         hits.push(m.index);
       }
       return hits;
@@ -484,6 +494,7 @@ const rules = [
     family: "native-fit",
     severity: "noticeable",
     stacks: null,
+    platforms: ["mobile", "universal"],
     message: "Hamburger menu or navigation drawer. It hides the top destinations behind a tap.",
     fix: "Ask first. Use tabs for three to five peer destinations; keep a drawer only for many destinations or a large-screen rail.",
     find({ code }) {
@@ -497,6 +508,7 @@ const rules = [
     family: "native-fit",
     severity: "minor",
     stacks: ["js", "web", "css"],
+    platforms: ["mobile"],
     message: "Hover behavior in a touch app. Nobody hovers on a phone.",
     fix: "Make the information or control visible without hover, or guard it with @media (hover: hover) for pointer devices only.",
     find({ code }) {
@@ -534,6 +546,181 @@ const rules = [
         hits.push(m.index);
       }
       return hits;
+    },
+  },
+  {
+    id: "tracked-caps-label",
+    family: "looks-generated",
+    severity: "minor",
+    stacks: ["js", "web", "css", "swift"],
+    message: "Small label in tracked capitals, the eyebrow above every section.",
+    fix: "Use sentence case in the body face, one step smaller, without letter spacing. Or delete the label and let the heading carry the section.",
+    find({ code, stack }) {
+      const hits = [];
+      for (const m of matches(/["'`][^"'`\n]*\buppercase\b[^"'`\n]*["'`]/, code)) {
+        if (/\btracking-(?:wide|wider|widest|\[\d)/.test(m[0])) hits.push(m.index);
+      }
+      if (stack === "js") {
+        for (const m of matches(/textTransform:\s*["']uppercase["']/, code)) {
+          const around = code.slice(Math.max(0, m.index - 160), m.index + 160);
+          const ls = /letterSpacing:\s*(\d+(?:\.\d+)?)/.exec(around);
+          if (ls && +ls[1] >= 0.8) hits.push(m.index);
+        }
+      }
+      if (stack === "css" || stack === "web") {
+        for (const m of matches(/text-transform:\s*uppercase/, code)) {
+          const open = code.lastIndexOf("{", m.index);
+          const close = code.indexOf("}", m.index);
+          const block = code.slice(open, close === -1 ? undefined : close);
+          if (/letter-spacing:\s*(?:0?\.(?:0[5-9]|[1-9])\d*em|[1-9][\d.]*px)/.test(block)) hits.push(m.index);
+        }
+      }
+      if (stack === "swift") {
+        for (const m of matches(/\.textCase\(\s*\.uppercase\s*\)/, code)) {
+          const around = code.slice(Math.max(0, m.index - 160), m.index + 160);
+          if (/\.(?:tracking|kerning)\(\s*[1-9]/.test(around)) hits.push(m.index);
+        }
+      }
+      return hits;
+    },
+  },
+  {
+    id: "icon-tile",
+    family: "looks-generated",
+    severity: "minor",
+    stacks: ["js", "web"],
+    message: "Icon in a tinted rounded square, the generated default for every row and feature card.",
+    fix: "Put the icon inline in the text color, or drop it. Keep a tile only where the shape carries meaning, like an app icon.",
+    find({ code }) {
+      const hits = [];
+      for (const m of matches(/["'`][^"'`\n]{0,300}["'`]/, code)) {
+        const c = m[0];
+        if (!/\brounded-(?:md|lg|xl|2xl|3xl|full)\b/.test(c)) continue;
+        if (!/\bbg-(?:[a-z]+-(?:50|100)|[a-z]+(?:-\d{3})?\/(?:5|10|15|20)|primary\/\d+|accent)\b/.test(c)) continue;
+        if (!/\b(?:size|h|w)-(?:8|9|10|11|12|14)\b/.test(c)) continue;
+        if (!/\b(?:items-center|place-items-center|justify-center)\b/.test(c)) continue;
+        hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
+    id: "transition-all",
+    family: "motion",
+    severity: "minor",
+    stacks: ["js", "web", "css"],
+    message: "Transition on every property (first use in this file).",
+    fix: "Name the properties: transition-colors, or transition-[transform,opacity]. Never animate width, height, top, or left.",
+    find({ code }) {
+      // Reported once per file: it is usually a habit, not a one-off.
+      const first = matches(/\btransition-all\b|transition(?:-property)?:\s*all\b/, code).next();
+      return first.done ? [] : [first.value.index];
+    },
+  },
+  {
+    id: "hover-scale",
+    family: "motion",
+    severity: "minor",
+    stacks: ["js", "web", "css"],
+    message: "Cards that grow on hover.",
+    fix: "Show hover with a quick color or surface change. Keep scale for a small press-down on buttons.",
+    find({ code }) {
+      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d))\b|:hover\s*\{[^}]*transform:\s*scale\(1\.(?:0[2-9]|[1-9])/, code)].map((m) => m.index);
+    },
+  },
+  {
+    id: "decorative-pulse",
+    family: "motion",
+    severity: "minor",
+    stacks: ["js", "web"],
+    message: "Pulsing or pinging element that is not a loading skeleton.",
+    fix: "Animate only what is live or loading. Remove looping motion from badges, dots, and buttons.",
+    find({ code }) {
+      const hits = [];
+      for (const m of matches(/["'`][^"'`\n]*\banimate-(?:pulse|ping)\b[^"'`\n]*["'`]/, code)) {
+        if (/\banimate-pulse\b/.test(m[0]) && /\bbg-(?:gray|slate|zinc|neutral|stone|muted)\b|skeleton/i.test(m[0])) continue;
+        hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
+    id: "unverified-claim",
+    family: "truthfulness",
+    severity: "noticeable",
+    stacks: null,
+    message: "Social proof or speed claim that the page does not back up.",
+    fix: "Use a real, sourced number with what it compares to, or remove it. Never ship invented customer counts, logo walls, or testimonials.",
+    find({ code }) {
+      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:teams|companies|developers|users|customers|people|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
+      return [...matches(re, code)].map((m) => m.index);
+    },
+  },
+  {
+    id: "clickable-div",
+    family: "accessibility",
+    severity: "noticeable",
+    stacks: ["js", "web"],
+    message: "Click handler on a div or span. Keyboard and screen reader users cannot reach it.",
+    fix: "Use a <button> for actions and an <a href> for navigation. They come with focus, Enter and Space, and the right role.",
+    find({ code }) {
+      const hits = [];
+      for (const m of matches(/<(?:div|span|li|td|img)\b[^<>]*?\s(?:onClick|@click|v-on:click|on:click)\s*=/, code)) {
+        const tagEnd = code.indexOf(">", m.index + m[0].length);
+        const tag = code.slice(m.index, tagEnd === -1 ? undefined : tagEnd);
+        if (/\brole\s*=|\btab[iI]ndex\s*=/.test(tag)) continue;
+        hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
+    id: "focus-removed",
+    family: "accessibility",
+    severity: "noticeable",
+    stacks: ["js", "web", "css"],
+    message: "Focus outline removed with nothing in its place.",
+    fix: "Keep a visible :focus-visible style in the palette: a 2px outline or ring with an offset.",
+    find({ code, stack }) {
+      const hits = [];
+      for (const m of matches(/["'`][^"'`\n]*\b(?:focus:)?outline-none\b[^"'`\n]*["'`]/, code)) {
+        // Focus styles often sit in another string of the same cn(...) call.
+        const around = code.slice(Math.max(0, m.index - 400), m.index + m[0].length + 400);
+        if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(around)) continue;
+        hits.push(m.index);
+      }
+      if ((stack === "css" || stack === "web") && !/focus-visible/.test(code)) {
+        for (const m of matches(/outline:\s*(?:none|0)\b/, code)) hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
+    id: "img-no-alt",
+    family: "accessibility",
+    severity: "noticeable",
+    stacks: ["js", "web"],
+    message: "Image without alt text.",
+    fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
+    find({ code }) {
+      const hits = [];
+      for (const m of matches(/<img(?=[\s/>])/, code)) {
+        const end = code.indexOf(">", m.index);
+        const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
+    id: "zoom-disabled",
+    family: "accessibility",
+    severity: "noticeable",
+    stacks: ["js", "web"],
+    message: "Pinch zoom disabled in the viewport settings.",
+    fix: "Remove maximum-scale and user-scalable from the viewport. If inputs zoom on focus in iOS, give them a 16px font size instead.",
+    find({ code }) {
+      return [...matches(/user-scalable\s*=\s*(?:no|0)|maximum-scale\s*=\s*1(?:\.0+)?(?![\d.])|userScalable:\s*false|maximumScale:\s*1(?:\.0+)?(?![\d.])/, code)].map((m) => m.index);
     },
   },
   {
@@ -623,17 +810,38 @@ function loadConfig(root) {
   return { ignoreRules: [], ignorePaths: [] };
 }
 
-// True when the nearest package.json (up to the filesystem root) ships the app to the web too.
-function isUniversalApp(dir) {
-  for (let d = dir; ; d = path.dirname(d)) {
-    try {
-      const pkg = fs.readFileSync(path.join(d, "package.json"), "utf8");
-      return /"react-native-web"|"@expo\/metro-runtime"/.test(pkg);
-    } catch {
-      // Keep looking upward.
-    }
-    if (path.dirname(d) === d) return false;
+// What the nearest package.json says the code ships to: "mobile", "universal"
+// (mobile and web), "web", or "unknown". Some rules only apply to one of them.
+const kindCache = new Map();
+function projectKind(dir) {
+  if (kindCache.has(dir)) return kindCache.get(dir);
+  let kind = "unknown";
+  let pkg = null;
+  try {
+    pkg = fs.readFileSync(path.join(dir, "package.json"), "utf8");
+  } catch {
+    // No package.json here.
   }
+  if (pkg !== null) {
+    const deps = (() => {
+      try {
+        const j = JSON.parse(pkg);
+        return Object.keys({ ...j.dependencies, ...j.devDependencies, ...j.peerDependencies });
+      } catch {
+        return [];
+      }
+    })();
+    const has = (re) => deps.some((d) => re.test(d));
+    const mobile = has(/^(?:react-native|expo|@capacitor\/|@ionic\/|nativescript|@nativescript\/)/);
+    const universal = has(/^(?:react-native-web|@expo\/metro-runtime)$/);
+    const web = has(/^(?:react-dom|next|vue|nuxt|svelte|@sveltejs\/kit|astro|@angular\/core|solid-js|@remix-run\/|vite|preact|gatsby)$/);
+    kind = mobile ? (universal ? "universal" : "mobile") : web ? "web" : "unknown";
+  }
+  // A package.json that names no platform (a tooling or workspace package)
+  // says nothing, so keep looking upward.
+  if (kind === "unknown" && path.dirname(dir) !== dir) kind = projectKind(path.dirname(dir));
+  kindCache.set(dir, kind);
+  return kind;
 }
 
 function walk(target, opts, out = []) {
@@ -684,10 +892,12 @@ function scanSource(text, file, options = {}) {
   const starts = lineStarts(text);
   const lines = text.split("\n");
   const ignoreRules = new Set(options.ignoreRules || []);
+  const kind = options.kind || "unknown";
   const findings = [];
   for (const rule of rules) {
     if (ignoreRules.has(rule.id)) continue;
     if (rule.stacks && !rule.stacks.includes(stack)) continue;
+    if (rule.platforms && kind !== "unknown" && !rule.platforms.includes(kind)) continue;
     const seen = new Set();
     for (const index of rule.find({ code, stack, file })) {
       const line = lineAt(starts, index);
@@ -716,8 +926,6 @@ function scan(targets, opts = {}) {
     const root = path.resolve(target);
     const config = loadConfig(fs.statSync(root).isDirectory() ? root : path.dirname(root));
     const ignoreRules = [...config.ignoreRules, ...(opts.ignoreRules || [])];
-    // Apps that also ship to the web legitimately use hover there.
-    if (isUniversalApp(fs.statSync(root).isDirectory() ? root : path.dirname(root))) ignoreRules.push("hover-only");
     for (const file of walk(root, opts)) {
       const rel = path.relative(process.cwd(), file) || file;
       if (config.ignorePaths.some((p) => rel.split(path.sep).join("/").includes(p))) continue;
@@ -730,7 +938,8 @@ function scan(targets, opts = {}) {
       }
       if (text.length > 1_000_000) continue;
       filesScanned++;
-      findings.push(...scanSource(text, rel, { ignoreRules }));
+      const kind = opts.platform || projectKind(path.dirname(file));
+      findings.push(...scanSource(text, rel, { ignoreRules, kind }));
     }
   }
   findings.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.file.localeCompare(b.file) || a.line - b.line);
@@ -769,9 +978,11 @@ function listRules() {
     .join("\n");
 }
 
-const USAGE = `Usage: unslopovich detect [paths...] [--json] [--ignore rule,rule] [--include-tests] [--list-rules]
+const USAGE = `Usage: unslopovich detect [paths...] [--json] [--platform mobile|web] [--ignore rule,rule] [--include-tests] [--list-rules]
 
-Scans mobile source for generated-looking UI and website-in-a-phone patterns.
+Scans mobile and web source for generated-looking UI, website-in-a-phone patterns,
+and accessibility and motion defaults. The platform comes from the nearest
+package.json; --platform overrides it.
 Exit code: 0 clean, 2 findings, 1 error.
 Silence one line with a comment: unslopovich-ignore <rule-id>
 Project config: .unslopovich/config.json  { "ignoreRules": [], "ignorePaths": [] }`;
@@ -788,11 +999,18 @@ function main(argv) {
   }
   const json = args.includes("--json");
   const includeTests = args.includes("--include-tests");
+  let platform = null;
   const ignoreRules = [];
   const targets = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === "--ignore") {
+    if (a === "--platform") {
+      platform = args[++i];
+      if (!["mobile", "web", "universal"].includes(platform)) {
+        console.error(USAGE);
+        return 1;
+      }
+    } else if (a === "--ignore") {
       if (!args[i + 1]) {
         console.error(USAGE);
         return 1;
@@ -812,7 +1030,7 @@ function main(argv) {
   }
   let result;
   try {
-    result = scan(targets.length ? targets : ["."], { includeTests, ignoreRules });
+    result = scan(targets.length ? targets : ["."], { includeTests, ignoreRules, platform });
   } catch (err) {
     console.error(err.message);
     return 1;

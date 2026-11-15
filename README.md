@@ -18,6 +18,8 @@ Then tell your agent:
 /unslopovich review my app
 ```
 
+Mobile apps, web apps, and websites. Same doctor, different reflexes: on a phone it checks you didn't build a website, and on the web it checks you didn't break one.
+
 ## The doctor did the reading
 
 Dr. Unslopovich scanned 105,027 App Store reviews from 299 top apps. Exactly one mentioned a purple gradient. It was asking for one.
@@ -65,7 +67,7 @@ The chart lives in `.unslopovich/chart.md`. It's where you tell the doctor that 
 
 ## The detector
 
-Twenty-one rules that read SwiftUI, UIKit, Compose, Android XML, React Native, Flutter, and Ionic source. No model, no network, no dependencies. The skill runs it for you, and it works on its own too:
+Thirty-one rules that read SwiftUI, UIKit, Compose, Android XML, React Native, Flutter, Ionic, React, Vue, Svelte, Astro, HTML, CSS, and Tailwind classes. No model, no network, no dependencies. The skill runs it for you, and it works on its own too:
 
 ```bash
 npx unslopovich detect src/
@@ -74,6 +76,10 @@ npx unslopovich detect --list-rules           # every rule and its fix
 ```
 
 It catches purple gradients and the project template's leftover purple, nested cards, decorative status dots, gradient text, glow shadows, emoji icons, unvirtualized lists, text that ignores the user's font size, disabled back gestures, hamburger menus, hover in a touch app, keyboards covering inputs, invented stats, and "Oops! Something went wrong".
+
+On the web it adds clickable divs, removed focus rings, disabled zoom, images without alt text, tracked-caps eyebrows, icons in tinted squares, `transition-all`, cards that grow on hover, things that pulse forever, and "Trusted by 10,000+ teams".
+
+It reads the nearest `package.json` to tell a phone app from a website, so hover is a problem in your Expo app and fine on your Next.js site. `--platform web` or `--platform mobile` settles it when it guesses wrong.
 
 Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslopovich-ignore <rule-id>` (`<!-- unslopovich-ignore <rule-id> -->` in XML), or a whole rule in `.unslopovich/config.json`:
 
@@ -95,13 +101,21 @@ Sample verdicts. Yours may be worse.
 
 ## Treats
 
-SwiftUI, UIKit, Jetpack Compose, React Native, Expo, Flutter, Ionic, Capacitor, Angular Native, and NativeScript.
+**Mobile:** SwiftUI, UIKit, Jetpack Compose, React Native, Expo, Flutter, Ionic, Capacitor, Angular Native, and NativeScript.
+
+**Web:** React, Next.js, Vue, Nuxt, Svelte, Astro, Angular, and plain HTML and CSS, Tailwind and shadcn/ui included.
 
 It reads your theme, finds the problems, fixes the shared components first, and uses your platform's native building blocks. It won't move your users' favorite button without asking.
 
 It also won't trade your purple gradient for the other default, the calm white one every model reaches for. A treated screen has to pass one test: cover the logo, and it should still look like your app.
 
+Before a big change it tells you how sick the patient is (heavy, light, or healthy) and writes a five-line direction for you to approve. Healthy screens get told they're healthy and left alone.
+
 Only want the bad news? Ask for a review and it stops at the diagnosis.
+
+## Prior art
+
+The doctor trained under good people. [Impeccable](https://github.com/pbakaus/impeccable) showed that a deterministic detector and design vocabulary beat a longer prompt. [Hallmark](https://github.com/Nutlope/hallmark) showed the value of a floor that never bends, defaults you can only waive on the record, and a fresh-eyed reviewer at the end. [Unslop](https://github.com/heydamir/unslop) showed that deciding how much to change comes before changing anything, and that richness belongs in the content, not the chrome. Unslopovich is for the screens they leave to others: native mobile apps, and the parts of a web app people use every day.
 
 ## Other agents
 

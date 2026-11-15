@@ -4,6 +4,8 @@ Each tell names what to look for. Where the detector can see it in code, its rul
 
 Check in this order. The order follows what users complain about, not what is easy to spot.
 
+This catalog covers native and web. Section 3 is for native apps only; web apps and websites have their own floor and tells in [web.md](web.md).
+
 ## 1. User friction
 
 Users complain about these far more than about how an app looks.
@@ -29,10 +31,11 @@ The app says something that is not so.
 - "Recent" lists that are not recent, "live" data that is cached
 - Buttons that go somewhere other than their label says
 - Stat tiles with invented or placeholder numbers [`invented-stat`]. Real data in a tile is not a tell.
+- Social proof and speed claims nobody supplied: "Trusted by 10,000+ teams", "10x faster", logo walls, testimonials [`unverified-claim`]
 - Trust or privacy claims the code contradicts, such as "no tracking" beside an ad SDK
 - Wrong or approximate logos
 
-## 3. Website in a phone
+## 3. Website in a phone (native apps)
 
 - Hamburger menu in place of tabs for the few top destinations [`drawer-nav`]
 - Marketing hero, feature grid, or footer inside the app
@@ -52,6 +55,7 @@ The app says something that is not so.
 - Swipe back or predictive back broken [`back-gesture`]
 - Long lists without pull to refresh where freshness matters, or without virtualization [`unvirtualized-list`]
 - Every element fading and sliding in on mount, or animation that blocks input
+- Motion by habit: transitions on every property [`transition-all`], cards that grow on hover [`hover-scale`], dots and badges that pulse forever [`decorative-pulse`]
 - Haptics on everything, or none on moments that deserve confirmation
 - Fixed heights or fixed text sizes that clip when the user enlarges text [`fixed-text-size`]
 
@@ -73,9 +77,9 @@ The look that replaced the purple one. It reads as tasteful and calm, and it is 
 
 - Everything on white or off-white, every group in a rounded card with a 1px gray border and a soft shadow, one radius everywhere
 - One blue or black accent, with nothing else in the palette carrying meaning
-- An icon in a tinted rounded square at the start of every row
+- An icon in a tinted rounded square at the start of every row [`icon-tile`]
 - A small colored dot beside labels that carries no status the user acts on [`status-dot`]. A dot that marks unread or online, has a text or shape backup, and is consistent across the app is a status, not a tell.
-- Section headers like "Overview", "Quick actions", "Recent activity", in small gray caps or with letter spacing
+- Section headers like "Overview", "Quick actions", "Recent activity", in small gray caps or with letter spacing [`tracked-caps-label`]
 - Large empty margins presented as calm, so the content a user came for gets less of the screen than the chrome
 - Gray secondary text under every title, repeating it in other words
 - A stat row of three numbers at the top of every main screen
