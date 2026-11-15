@@ -180,15 +180,14 @@ test("requests carry the schema, the effort, and the cached instructions", () =>
   assert.ok(SCHEMA.properties.themes.items.enum.length === THEME_IDS.length);
 });
 
-test("the corpus draw is uniform, fixed, and keeps everything when short", async () => {
-  const { selectIds, targets } = await import("../lib/corpus.mjs");
-  assert.deepStrictEqual(targets({ apple: 2_000_000, play: 700_000 }), { apple: 1_050_000, play: 700_000 });
-  assert.deepStrictEqual(targets({ apple: 900_000, play: 700_000 }), { apple: 900_000, play: 600_000 }, "short App Store draws Play down");
-  const ids = Array.from({ length: 1000 }, (_, i) => `a${i}`);
-  const a = selectIds(ids, 400);
-  assert.strictEqual(a.size, 400);
-  assert.deepStrictEqual([...selectIds(ids.slice().reverse(), 400)].sort(), [...a].sort(), "order does not matter");
-  assert.strictEqual(selectIds(ids, 5000).size, 1000);
-  const firstHalf = [...a].filter((id) => Number(id.slice(1)) < 500).length;
-  assert.ok(firstHalf > 150 && firstHalf < 250, "no bias toward early ids");
+test("the corpus keeps complete rounds and Google Play's first pass", async () => {
+  const { inCorpusApp, playFirstPass } = await import("../lib/corpus.mjs");
+  assert.ok(inCorpusApp({ platform: "apple" }), "round 1 has no round field");
+  assert.ok(inCorpusApp({ platform: "apple", round: 2 }));
+  assert.ok(!inCorpusApp({ platform: "apple", round: 3 }));
+  assert.ok(inCorpusApp({ platform: "play" }));
+  const first = Array.from({ length: 2400 }, (_, i) => ({ id: `p${i}`, country: "us" }));
+  const topUp = [{ id: "x1", country: "ng" }, { id: "x2", country: "us" }];
+  assert.strictEqual(playFirstPass([...first, ...topUp]).length, 2400);
+  assert.deepStrictEqual(playFirstPass([{ id: "a", country: "gb" }, { id: "b", country: "my" }]).map((r) => r.id), ["a"]);
 });

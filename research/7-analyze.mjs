@@ -20,6 +20,7 @@ import fs from "node:fs";
 import { SEED, MAX_STARS, MIN_WORDS, WINDOW_MONTHS, GOLD_PER_PLATFORM } from "./config.mjs";
 import { THEME_IDS, DESIGN_THEMES } from "./lib/taxonomy.mjs";
 import { DATA, RESULTS, dataPath, readJson, readJsonlGz, listFiles, writeJson, rng, log } from "./lib/util.mjs";
+import { corpusApps } from "./lib/corpus.mjs";
 
 const B = 1000;
 const MIN_APP_REVIEWS = 10;
@@ -115,19 +116,19 @@ function resample(items, random) {
 
 function corpusStats() {
   const pop = readJson(dataPath("population.json"));
+  const apps = corpusApps();
   const out = { totals: pop.totals, platforms: {} };
   for (const platform of PLATFORMS) {
-    const metas = [...listFiles(path.join(DATA, "raw", platform), ".meta.json")].map((f) => readJson(f));
+    const mine = apps.filter((a) => a.platform === platform);
+    const metas = mine.map((a) => readJson(path.join(DATA, "raw", platform, `${a.id}.meta.json`)));
     const spans = metas.filter((m) => m.oldest && m.newest).map((m) => (new Date(m.newest) - new Date(m.oldest)) / 864e5).sort((a, b) => a - b);
     const per = pop.perApp.filter((a) => a.platform === platform);
     out.platforms[platform] = {
-      apps: metas.length,
-      appsWithReviews: metas.filter((m) => m.kept > 0).length,
-      collected: per.reduce((s, a) => s + a.collected, 0),
+      apps: mine.length,
+      appsWithReviews: per.filter((a) => a.corpus > 0).length,
       corpus: per.reduce((s, a) => s + a.corpus, 0),
       lowRated: per.reduce((s, a) => s + a.lowRated, 0),
       population: per.reduce((s, a) => s + a.population, 0),
-      requests: metas.reduce((s, m) => s + m.requests, 0),
       countries: [...new Set(metas.flatMap((m) => m.passes.filter((p) => p.added).map((p) => p.country)))].length,
       medianDaysCovered: spans.length ? Math.round(spans[Math.floor(spans.length / 2)]) : null,
     };
@@ -250,12 +251,11 @@ function markdown(r) {
   row("Apps", (p) => num(p.apps));
   row("Apps with reviews in the window", (p) => num(p.appsWithReviews));
   row("Storefronts", (p) => num(p.countries));
-  row("Reviews collected", (p) => num(p.collected));
-  row("In the corpus", (p) => num(p.corpus));
+  row("Reviews in the corpus", (p) => num(p.corpus));
   row(`Rated ${r.method.maxStars} stars or lower`, (p) => num(p.lowRated));
   row(`Of those, ${r.method.minWords}+ words and not duplicated`, (p) => num(p.population));
   row("Median days covered per app", (p) => num(p.medianDaysCovered));
-  L.push("", `Total collected: ${num(c.totals.collected)} reviews. Corpus: ${num(c.totals.corpus)} (a random draw per store: 60% App Store, 40% Google Play).`, "");
+  L.push("", `Total: ${num(c.totals.corpus)} reviews.`, "");
 
   for (const platform of PLATFORMS) {
     const p = r.platforms[platform];

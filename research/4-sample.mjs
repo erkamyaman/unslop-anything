@@ -10,10 +10,9 @@
 // Output: data/sample.jsonl.gz, data/population.json, data/gold/sample.jsonl.gz,
 //         data/gold/batch-NN.json (what a labeller reads)
 
-import path from "node:path";
 import { MAX_STARS, MIN_WORDS, SAMPLE_PER_APP, SEED, GOLD_PER_PLATFORM, GOLD_BATCH } from "./config.mjs";
-import { DATA, dataPath, readJson, readJsonlGz, listFiles, writeJsonlGz, writeJson, rng, shuffle, hash, log } from "./lib/util.mjs";
-import { corpusIds } from "./lib/corpus.mjs";
+import { dataPath, writeJsonlGz, writeJson, rng, shuffle, hash, log } from "./lib/util.mjs";
+import { corpusApps, corpusRows } from "./lib/corpus.mjs";
 
 export const words = (s) => (s.match(/[\p{L}\p{N}']+/gu) || []).length;
 export const normalize = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -33,42 +32,35 @@ export function population(rows) {
 }
 
 async function main() {
-  const { apps } = readJson(dataPath("apps.json"));
-  const appInfo = new Map(apps.map((a) => [`${a.platform}:${a.id}`, a]));
   const sample = [];
   const perApp = [];
-  const inCorpus = corpusIds();
-  const totals = { collected: 0, corpus: 0, lowRated: 0, population: 0 };
+  const totals = { corpus: 0, lowRated: 0, population: 0 };
   const everyone = { apple: [], play: [] };
-  for (const platform of ["apple", "play"]) {
-    for (const file of listFiles(path.join(DATA, "raw", platform), ".jsonl.gz")) {
-      const all = readJsonlGz(file);
-      const rows = all.filter((r) => inCorpus[platform].has(r.id));
-      const appId = path.basename(file, ".jsonl.gz");
-      const info = appInfo.get(`${platform}:${appId}`);
-      if (!info) continue;
-      const pop = population(rows);
-      for (const r of pop) everyone[platform].push({ r, appId, info });
-      const take = shuffle(pop, rng(SEED ^ hash(`sample:${platform}:${appId}`))).slice(0, SAMPLE_PER_APP);
-      const weight = take.length ? pop.length / take.length : 0;
-      for (const r of take) {
-        sample.push({
-          key: `s${sample.length}`,
-          review: { id: r.id, platform, rating: r.rating, title: r.title, text: r.text, date: r.date, country: r.country, sort: r.sort },
-          app: appId,
-          platform,
-          category: info.category,
-          band: info.band,
-          weight,
-        });
-      }
-      const low = rows.filter((r) => r.rating <= MAX_STARS).length;
-      totals.collected += all.length;
-      totals.corpus += rows.length;
-      totals.lowRated += low;
-      totals.population += pop.length;
-      perApp.push({ platform, app: appId, category: info.category, band: info.band, collected: all.length, corpus: rows.length, lowRated: low, population: pop.length, sampled: take.length });
+  for (const info of corpusApps()) {
+    const platform = info.platform;
+    const appId = info.id;
+    const rows = corpusRows(info);
+    if (!rows.length) continue;
+    const pop = population(rows);
+    for (const r of pop) everyone[platform].push({ r, appId, info });
+    const take = shuffle(pop, rng(SEED ^ hash(`sample:${platform}:${appId}`))).slice(0, SAMPLE_PER_APP);
+    const weight = take.length ? pop.length / take.length : 0;
+    for (const r of take) {
+      sample.push({
+        key: `s${sample.length}`,
+        review: { id: r.id, platform, rating: r.rating, title: r.title, text: r.text, date: r.date, country: r.country, sort: r.sort },
+        app: appId,
+        platform,
+        category: info.category,
+        band: info.band,
+        weight,
+      });
     }
+    const low = rows.filter((r) => r.rating <= MAX_STARS).length;
+    totals.corpus += rows.length;
+    totals.lowRated += low;
+    totals.population += pop.length;
+    perApp.push({ platform, app: appId, category: info.category, band: info.band, corpus: rows.length, lowRated: low, population: pop.length, sampled: take.length });
   }
   writeJsonlGz(dataPath("sample.jsonl.gz"), sample);
 
@@ -94,7 +86,7 @@ async function main() {
     writeJson(dataPath("gold", `batch-${String(i / GOLD_BATCH).padStart(2, "0")}.json`), batch);
   }
   writeJson(dataPath("population.json"), { totals, sampled: sample.length, perApp });
-  log(`collected ${totals.collected}, corpus ${totals.corpus}, low-rated ${totals.lowRated}, population ${totals.population}, sample ${sample.length}, reference ${gold.length}`);
+  log(`corpus ${totals.corpus}, low-rated ${totals.lowRated}, population ${totals.population}, sample ${sample.length}, reference ${gold.length}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

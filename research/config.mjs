@@ -60,14 +60,10 @@ export const CAP_PER_PASS = 150;
 export const CONCURRENCY = 3;
 export const REQUEST_DELAY_MS = 350;
 
-// The corpus split: every Google Play review collected is 40% of the corpus,
-// and a random draw of App Store reviews is the other 60%.
-export const CORPUS_SPLIT = { apple: 0.6, play: 0.4 };
-
-// Google Play's top-up (a higher cap and ten more storefronts) was stopped
-// part way, so the corpus uses Google Play's first full pass for every app:
-// the first ten storefronts and at most the first 2,400 reviews collected.
-export const PLAY_FIRST_PASS = { storefronts: 10, capPerApp: 2400 };
+// The corpus: the collection rounds that finished (see lib/corpus.mjs).
+// App Store: rounds 1 and 2 (701 apps); rounds 3 and 4 were stopped part way.
+// Google Play: each app's first full pass; its top-up was stopped part way.
+export const CORPUS = { appleRounds: [1, 2], playFirstPass: { storefronts: 10, capPerApp: 2400 } };
 
 // Only reviews from the last WINDOW_MONTHS before collection are kept, so an
 // old most-helpful review about a long-gone design does not take a slot.
