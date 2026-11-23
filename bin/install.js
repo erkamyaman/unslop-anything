@@ -49,6 +49,16 @@ if (args.includes("--help") || args.includes("-h")) {
   return;
 }
 
+const withValue = ["--agent", "--dir"];
+const known = [...withValue, "--project", "--help", "-h"];
+for (let i = 0; i < args.length; i++) {
+  if (withValue.includes(args[i])) i++;
+  else if (args[i].startsWith("-") && !known.includes(args[i])) {
+    console.error(`Unknown option ${args[i]}\n\n${usage}`);
+    process.exit(1);
+  }
+}
+
 function removeOldSkill(base) {
   const old = path.join(base, "unslopovich");
   try {

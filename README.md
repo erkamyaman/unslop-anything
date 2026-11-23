@@ -234,3 +234,5 @@ Want to hear when a new version is out? Star the repo, then **Watch → Custom �
 MIT © [Erkam Yaman](https://github.com/erkamyaman)
 
 If it saved you a redesign, you can [sponsor me](https://github.com/sponsors/erkamyaman).
+
+<sub>Your safety comes first: sponsors get a logo and a link here, nothing more. No paid recommendations and no setup guides for third-party AI API resellers, so nothing here steers your code, keys or data somewhere you didn't choose.</sub>
