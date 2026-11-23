@@ -91,6 +91,13 @@ test("inline ignore comments silence a line", () => {
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
 });
 
+test("a CSS block comment silences a line, since // is not a CSS comment", () => {
+  const css = ".a:focus { outline: none; }\n";
+  assert.deepStrictEqual(scanSource(css, "a.css").map((f) => f.rule), ["focus-removed"]);
+  assert.deepStrictEqual(scanSource(`/* unslop-anything-ignore focus-removed */\n${css}`, "a.css"), []);
+  assert.deepStrictEqual(scanSource(`.a:focus { outline: none; } /* unslop-anything-ignore focus-removed */\n`, "a.css"), []);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
