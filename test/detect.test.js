@@ -91,6 +91,35 @@ test("style percentages and scale multipliers are not findings", () => {
   assert.deepStrictEqual(scanSource(src, "a.tsx"), []);
 });
 
+test("hover-scale detects named and arbitrary values", () => {
+  const src = [
+    "<div className='hover:scale-[1.03]'>test</div>",
+    "<div className='group-hover:scale-[1.05]'>test</div>",
+    "<div className='hover:scale-105'>test</div>",
+    "<div className='group-hover:scale-110'>test</div>",
+    "<div className='hover:scale-[1.01]'>test</div>", // should not be detected
+    "<div className='hover:scale-[0.98]'>test</div>", // should not be detected
+  ].join("\n");
+  const findings = scanSource(src, "a.tsx");
+  
+  // Check that the correct findings are detected
+  const findingRules = findings.map(f => f.rule);
+  assert.ok(findingRules.includes("hover-scale"), "hover-scale rule should be triggered");
+  assert.strictEqual(findings.length, 4, "Should detect 4 hover-scale instances");
+  
+  // Verify that the specific lines with valid scale values are detected
+  const detectedLines = findings.map(f => f.line);
+  assert.deepStrictEqual(detectedLines.sort(), [1, 2, 3, 4], "Should detect lines with scale values >= 1.02");
+});
+  const src = [
+    "<View style={{ width: '80%', maxWidth: '100%' }} />",
+    "<Text maxFontSizeMultiplier={1.5}>Hi</Text>",
+    "<ScrollView horizontal>{chips.map((c) => <Chip key={c} />)}</ScrollView>",
+    "const ref = useAnimatedRef<ScrollView>()",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(src, "a.tsx"), []);
+});
+
 test("emoji pickers are not icon findings, labeled emoji are", () => {
   assert.deepStrictEqual(scanSource("const picks = ['😀', '😂', '🎉'];", "a.ts"), []);
   assert.deepStrictEqual(scanSource("<Text>🚀 Fast</Text>", "a.tsx").map((f) => f.rule), ["emoji-icon"]);
