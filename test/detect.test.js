@@ -243,3 +243,29 @@ test("the installer replaces a skill folder from before the rename", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the installer rejects an unknown flag before it copies anything", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-home-"));
+  try {
+    const run = (...flags) =>
+      spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "install.js"), ...flags], {
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+        encoding: "utf8",
+      });
+    const typo = run("--projet");
+    assert.strictEqual(typo.status, 1);
+    assert.match(typo.stderr, /Unknown option --projet/);
+    assert.match(typo.stderr, /Usage:/);
+    assert.deepStrictEqual(fs.readdirSync(home), []);
+    const short = run("-x");
+    assert.strictEqual(short.status, 1);
+    assert.match(short.stderr, /Unknown option -x/);
+    assert.strictEqual(run("--help").status, 0);
+    assert.strictEqual(run("--agent", "nope").status, 1);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
