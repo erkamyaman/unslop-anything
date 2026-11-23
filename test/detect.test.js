@@ -305,3 +305,26 @@ test("the installer rejects an unknown flag before it copies anything", () => {
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("glow-shadow catches Tailwind colored and arbitrary shadows while ignoring neutral shadows", () => {
+  const flagged = [
+    '<div className="shadow-2xl shadow-purple-500/50">x</div>',
+    '<div className="shadow-[0_0_40px_rgba(124,58,237,0.5)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "a.tsx").map((f) => f.rule), ["glow-shadow", "glow-shadow"]);
+
+  for (const color of ["purple", "violet", "indigo", "pink", "fuchsia", "blue", "cyan", "teal"]) {
+    assert.deepStrictEqual(
+      scanSource(`<div className="shadow-${color}-500/40">x</div>`, "a.tsx").map((f) => f.rule),
+      ["glow-shadow"],
+    );
+  }
+
+  const neutral = [
+    '<div className="shadow-lg">x</div>',
+    '<div className="shadow-black/20">x</div>',
+    '<div className="shadow-gray-900/10">x</div>',
+    '<div className="shadow-[0_2px_8px_rgba(0,0,0,0.2)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(neutral, "a.tsx"), []);
+});

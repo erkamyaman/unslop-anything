@@ -285,12 +285,12 @@ const rules = [
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*([^,;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)/, code)) {
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*([^,;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
         const value = m.slice(1).find(Boolean) || "";
-        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000|rgba?\(\s*0\s*,\s*0\s*,\s*0/i.test(value)) continue;
+        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
         const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
         const hex = hexColors(value).some(isSaturated);
-        const rgb = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(value);
+        const rgb = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/.exec(value);
         const rgbSat = rgb && Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60;
         if (named || hex || rgbSat) hits.push(m.index);
       }
