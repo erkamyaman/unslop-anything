@@ -184,6 +184,19 @@ function lineAt(starts, index) {
   return lo + 1;
 }
 
+// Index of the ">" that closes the tag, skipping any "{...}" attribute expression so an arrow
+// function (=>) or a comparison inside it does not end the tag early. -1 when nothing closes it.
+function tagEnd(text, from) {
+  let depth = 0;
+  for (let i = from; i < text.length; i++) {
+    const c = text[i];
+    if (c === "{") depth++;
+    else if (c === "}" && depth > 0) depth--;
+    else if (c === ">" && depth === 0) return i;
+  }
+  return text.indexOf(">", from);
+}
+
 function* matches(re, text) {
   const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
   let m;
@@ -666,8 +679,8 @@ const rules = [
     find({ code }) {
       const hits = [];
       for (const m of matches(/<(?:div|span|li|td|img)\b[^<>]*?\s(?:onClick|@click|v-on:click|on:click)\s*=/, code)) {
-        const tagEnd = code.indexOf(">", m.index + m[0].length);
-        const tag = code.slice(m.index, tagEnd === -1 ? undefined : tagEnd);
+        const end = tagEnd(code, m.index + m[0].length);
+        const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (/\brole\s*=|\btab[iI]ndex\s*=/.test(tag)) continue;
         hits.push(m.index);
       }
@@ -705,7 +718,7 @@ const rules = [
     find({ code }) {
       const hits = [];
       for (const m of matches(/<img(?=[\s/>])/, code)) {
-        const end = code.indexOf(">", m.index);
+        const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
       }

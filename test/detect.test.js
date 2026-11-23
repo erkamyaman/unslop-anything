@@ -243,3 +243,12 @@ test("the installer replaces a skill folder from before the rename", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("an arrow function in an attribute does not end the tag for clickable-div and img-no-alt", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor('<div onClick={() => go()} role="button" tabIndex={0}>x</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<img src={src} onError={() => setBroken(true)} alt="Avatar" />\n'), []);
+  // Still reported when the attribute really is missing.
+  assert.deepStrictEqual(rulesFor("<div onClick={() => go()}>x</div>\n"), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
+});
