@@ -138,6 +138,15 @@ test("Android color resources reach template-theme", () => {
   assert.deepStrictEqual(scanSource(src, "colors.xml").map((f) => f.rule), ["template-theme"]);
 });
 
+test("slop-gradient reads Android #AARRGGBB colors", () => {
+  const src = '<gradient android:startColor="#FF7C3AED" android:endColor="#FFEC4899"/>\n';
+  assert.deepStrictEqual(scanSource(src, "bg.xml").map((f) => f.rule), ["slop-gradient"]);
+  const rgb = '<gradient android:startColor="#7C3AED" android:endColor="#EC4899"/>\n';
+  assert.deepStrictEqual(scanSource(rgb, "bg.xml").map((f) => f.rule), ["slop-gradient"]);
+  const scrim = ".hero { background: linear-gradient(to bottom, transparent, #000000CC); }\n";
+  assert.deepStrictEqual(scanSource(scrim, "a.css"), []);
+});
+
 test("XML ignore comments work", () => {
   const src = '<resources>\n  <!-- unslop-anything-ignore template-theme -->\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
   assert.deepStrictEqual(scanSource(src, "colors.xml"), []);

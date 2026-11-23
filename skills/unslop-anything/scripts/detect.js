@@ -61,10 +61,13 @@ function hexToHsl(hex) {
   return { h, s, l };
 }
 
-// Six-digit hex colors in a snippet: #RRGGBB, 0xFFRRGGBB, Color(0xRRGGBB).
-function hexColors(snippet) {
+// Six-digit hex colors in a snippet: #RRGGBB, 0xFFRRGGBB, Color(0xRRGGBB),
+// and #AARRGGBB in Android XML.
+function hexColors(snippet, stack) {
   const out = [];
-  const re = /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
+  const re = stack === "xml"
+    ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g
+    : /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
   let m;
   while ((m = re.exec(snippet))) out.push((m[1] || m[2]).toUpperCase());
   return out;
@@ -233,14 +236,14 @@ const rules = [
     stacks: null,
     message: "Purple, indigo, or pink gradient: the default AI palette.",
     fix: "Use a flat surface from the theme. Keep a gradient only if it comes from the brand (logo, icon) and record that in .unslop-anything/decisions.md.",
-    find({ code, file }) {
+    find({ code, stack, file }) {
       if (/icon|logo|brand/i.test(path.basename(file))) return [];
       const hits = [];
       for (const m of matches(/(?<!<\/)(?:LinearGradient|linearGradient|RadialGradient|radialGradient|AngularGradient|Brush\.(?:linear|radial|horizontal|vertical|sweep)Gradient|linear-gradient|radial-gradient|GradientDrawable|<gradient\b)/, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         const snippet = code.slice(m.index, m.index + 400);
-        if (hexColors(snippet).some(isSlopHue) || SLOP_COLOR_NAME.test(snippet.slice(0, 250))) hits.push(m.index);
+        if (hexColors(snippet, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(snippet.slice(0, 250))) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
