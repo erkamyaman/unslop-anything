@@ -91,6 +91,13 @@ test("inline ignore comments silence a line", () => {
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
 });
 
+test("a JSX ignore comment on its own line silences the next line", () => {
+  const src = "<View>\n  {/* unslop-anything-ignore clickable-div */}\n  <div onClick={go}>x</div>\n  <div onClick={go}>y</div>\n</View>\n";
+  assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => `${f.rule}:${f.line}`), ["clickable-div:4"]);
+  const spaced = "<View>\n  { /* unslop-anything-ignore */ }\n  <div onClick={go}>x</div>\n</View>\n";
+  assert.deepStrictEqual(scanSource(spaced, "a.tsx"), []);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);

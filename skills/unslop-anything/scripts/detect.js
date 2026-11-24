@@ -929,7 +929,7 @@ function walk(target, opts, out = []) {
 // silences the next line.
 function ignoredByComment(lines, line, ruleId) {
   const previous = lines[line - 2];
-  const own = previous && /^\s*(?:\/\/|\/\*|\*|<!--|#)/.test(previous) ? previous : null;
+  const own = previous && /^\s*(?:\/\/|\/\*|\{\s*\/\*|\*|<!--|#)/.test(previous) ? previous : null;
   for (const l of [lines[line - 1], own]) {
     if (!l) continue;
     const m = /(?:unslop-anything|unslopovich)-ignore(?:\s+([\w-]+(?:\s*,\s*[\w-]+)*))?/.exec(l);
