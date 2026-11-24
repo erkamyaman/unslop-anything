@@ -6,6 +6,13 @@ const path = require("path");
 const { scan, scanSource, rules, isSlopHue, main } = require("../skills/unslop-anything/scripts/detect.js");
 
 const fixtures = path.join(__dirname, "fixtures");
+
+test("the README rule count matches the detector", () => {
+  const readme = require("node:fs").readFileSync(path.join(__dirname, "..", "README.md"), "utf8");
+  const stated = readme.match(/(\d+) detector rules/);
+  assert.ok(stated, "README no longer states 'N detector rules'");
+  assert.strictEqual(Number(stated[1]), rules.length);
+});
 const rulesIn = (file) => new Set(scan([path.join(fixtures, "slop", file)]).findings.map((f) => f.rule));
 
 test("clean fixtures produce no findings", () => {

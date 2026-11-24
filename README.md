@@ -19,7 +19,7 @@
   <a href="https://github.com/erkamyaman/unslop-anything"><img src="https://img.shields.io/github/stars/erkamyaman/unslop-anything?style=social" alt="GitHub stars"></a>
 </p>
 
-<p align="center">5,008,684 app reviews read · 1 purple gradient found · 31 detector rules · one command</p>
+<p align="center">5,008,684 app reviews read · 1 purple gradient found · 33 detector rules · one command</p>
 
 <p align="center"><a href="research/README.md">The study behind it</a>: what people actually complain about, with the method and the code.</p>
 
@@ -135,7 +135,7 @@ The chart lives in `.unslop-anything/chart.md`. It's where you tell the doctor t
 
 ## The detector
 
-Thirty-one rules that read SwiftUI, UIKit, Compose, Android XML, React Native, Flutter, Ionic, React, Vue, Svelte, Astro, HTML, CSS, and Tailwind classes. No model, no network, no dependencies. The skill runs it for you, and it works on its own too:
+Thirty-three rules that read SwiftUI, UIKit, Compose, Android XML, React Native, Flutter, Ionic, React, Vue, Svelte, Astro, HTML, CSS, and Tailwind classes. No model, no network, no dependencies. The skill runs it for you, and it works on its own too:
 
 ```bash
 npx unslop-anything detect src/
