@@ -411,6 +411,32 @@ test("the installer replaces a skill folder from before the rename", () => {
   }
 });
 
+test("the installer refuses to install into the folder it installs from", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  // A copy of the package, so a failure cannot delete files from this checkout.
+  const pkg = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-pkg-"));
+  fs.cpSync(path.join(__dirname, "..", "bin"), path.join(pkg, "bin"), { recursive: true });
+  fs.cpSync(path.join(__dirname, "..", "skills"), path.join(pkg, "skills"), { recursive: true });
+  const before = fs.readdirSync(path.join(pkg, "skills", "unslop-anything")).sort();
+  fs.symlinkSync(path.join(pkg, "skills"), path.join(pkg, "link"), "junction");
+  const dirs = ["skills", "./skills/../skills", "link"];
+  // On a case-insensitive file system, another spelling is the same folder.
+  if (fs.existsSync(path.join(pkg, "SKILLS"))) dirs.push("SKILLS");
+  try {
+    for (const dir of dirs) {
+      const run = spawnSync(process.execPath, [path.join("bin", "install.js"), "--dir", dir], { cwd: pkg, encoding: "utf8" });
+      assert.strictEqual(run.status, 1);
+      assert.match(run.stderr, /nothing to install/);
+      assert.deepStrictEqual(fs.readdirSync(path.join(pkg, "skills", "unslop-anything")).sort(), before);
+      assert.ok(fs.existsSync(path.join(pkg, "skills", "unslop-anything", "SKILL.md")));
+    }
+  } finally {
+    fs.rmSync(pkg, { recursive: true, force: true });
+  }
+});
+
 test("an arrow function in an attribute does not end the tag for clickable-div and img-no-alt", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor('<div onClick={() => go()} role="button" tabIndex={0}>x</div>\n'), []);

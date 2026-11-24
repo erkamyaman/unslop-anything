@@ -68,9 +68,24 @@ function removeOldSkill(base) {
   } catch {}
 }
 
+function isSkillFolder(dir) {
+  try {
+    const a = fs.statSync(dir);
+    const b = fs.statSync(skill);
+    return a.dev === b.dev && a.ino === b.ino;
+  } catch {
+    return false;
+  }
+}
+
 function copySkill(base) {
-  removeOldSkill(base);
   const dest = path.join(base, "unslop-anything");
+  // Installing into the skill's own folder would delete each file before copying it onto itself.
+  if (isSkillFolder(dest)) {
+    console.error(`${dest} is where the skill is installed from, so there is nothing to install.`);
+    return null;
+  }
+  removeOldSkill(base);
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(skill)) {
     fs.rmSync(path.join(dest, entry), { recursive: true, force: true });
@@ -82,6 +97,7 @@ function copySkill(base) {
 const dir = option("--dir");
 if (dir) {
   const dest = copySkill(path.resolve(dir.replace(/^~(?=$|\/)/, home)));
+  if (!dest) process.exit(1);
   console.log(`Dr. Unslopovich will see you now.\nInstalled to ${dest}\nNext, ask your agent: review my app with unslop-anything`);
   return;
 }
@@ -117,6 +133,7 @@ for (const id of agents) {
 
 console.log("Dr. Unslopovich will see you now.");
 for (const { dest, agents: list } of installed.values()) {
+  if (!dest) continue;
   console.log(`\n${list.map((a) => a.name).join(", ")}\n  installed to ${dest}`);
   for (const a of list) console.log(`  in ${a.name}: ${a.call} review my app`);
 }
