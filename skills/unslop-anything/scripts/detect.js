@@ -853,7 +853,7 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       for (const m of matches(/["'`][^"'`\n]*\buppercase\b[^"'`\n]*["'`]/, code)) {
-        if (/\btracking-(?:wide|wider|widest|\[\d)/.test(m[0])) hits.push(m.index);
+        if (/\btracking-(?:wide|wider|widest|\[\.?\d)/.test(m[0])) hits.push(m.index);
       }
       if (stack === "js") {
         for (const m of matches(/textTransform:\s*["']uppercase["']/, code)) {
@@ -867,7 +867,7 @@ const rules = [
           const open = code.lastIndexOf("{", m.index);
           const close = code.indexOf("}", m.index);
           const block = code.slice(open, close === -1 ? undefined : close);
-          if (/letter-spacing:\s*(?:0?\.(?:0[5-9]|[1-9])\d*em|[1-9][\d.]*px)/.test(block)) hits.push(m.index);
+          if (/letter-spacing:\s*(?:0?\.(?:0[5-9]|[1-9])\d*r?em|[1-9][\d.]*px)/.test(block)) hits.push(m.index);
         }
       }
       if (stack === "swift") {

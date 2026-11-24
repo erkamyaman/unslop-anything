@@ -155,6 +155,27 @@ test("emoji pickers are not icon findings, labeled emoji are", () => {
   assert.deepStrictEqual(scanSource("<Text>🚀 Fast</Text>", "a.tsx").map((f) => f.rule), ["emoji-icon"]);
 });
 
+test("tracked-caps-label catches leading-dot tracking and rem letter-spacing", () => {
+  // Issue #113: the same eyebrow written two more common ways must flag.
+  assert.deepStrictEqual(
+    scanSource('<p className="text-xs uppercase tracking-[.2em]">Features</p>\n', "a.tsx").map((f) => f.rule),
+    ["tracked-caps-label"],
+  );
+  assert.deepStrictEqual(
+    scanSource(".eyebrow { text-transform: uppercase; letter-spacing: 0.12rem; }\n", "a.css").map((f) => f.rule),
+    ["tracked-caps-label"],
+  );
+  // The original forms still flag.
+  assert.deepStrictEqual(
+    scanSource('<p className="text-xs uppercase tracking-[0.2em]">Features</p>\n', "a.tsx").map((f) => f.rule),
+    ["tracked-caps-label"],
+  );
+  assert.deepStrictEqual(
+    scanSource(".eyebrow { text-transform: uppercase; letter-spacing: 0.12em; }\n", "a.css").map((f) => f.rule),
+    ["tracked-caps-label"],
+  );
+});
+
 test("the slop hue band", () => {
   assert.ok(isSlopHue("7C3AED")); // violet
   assert.ok(isSlopHue("6366F1")); // indigo
