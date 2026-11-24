@@ -218,6 +218,25 @@ function* matches(re, text) {
   }
 }
 
+// True when the `brush =` at `index` sits inside a TextStyle(...) or
+// SpanStyle(...) call: walk backwards matching parens until the innermost
+// still-open `(` is found and check the callee name in front of it.
+function isTextBrush(code, index) {
+  let depth = 0;
+  for (let i = index - 1; i >= 0; i--) {
+    const c = code[i];
+    if (c === ")") depth++;
+    else if (c === "(") {
+      if (depth > 0) depth--;
+      else {
+        const name = /(?:(?:^|[^\w.])(?:TextStyle|SpanStyle)|\.copy)\s*$/.exec(code.slice(0, i));
+        return Boolean(name);
+      }
+    }
+  }
+  return false;
+}
+
 // Index just past the bracket that closes the one at `open`.
 function closeOf(text, open) {
   const pairs = { "(": ")", "{": "}", "[": "]" };
@@ -232,6 +251,99 @@ function closeOf(text, open) {
     }
   }
   return text.length;
+}
+
+// The part of `rest` (the text after a gradient's constructor) during which
+// `variable` still holds that gradient: up to the end of the enclosing block,
+// or up to the variable's next assignment. A declaration of the same name in a
+// nested block (a helper's own `const g`) shadows it and does not end it.
+function bindingRegion(rest, variable) {
+  let depth = 0;
+  let blockEnd = rest.length;
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "{") depth++;
+    else if (rest[i] === "}" && --depth < 0) { blockEnd = i; break; }
+  }
+  const region = rest.slice(0, blockEnd);
+  const write = new RegExp(`(?<![\\w$.])(?:(?:const|let|var|val)\\s+)?${variable}\\s*=(?!=)`);
+  for (const m of matches(write, region)) {
+    const declaredInNestedBlock =
+      /^(?:const|let|var|val)\s/.test(m[0]) && blockDepth(region, m.index) > 0;
+    if (!declaredInNestedBlock) return region.slice(0, m.index);
+  }
+  return region;
+}
+
+function blockDepth(text, index) {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") depth--;
+  }
+  return depth;
+}
+
+const COLOR_SIGN =/#[0-9a-fA-F]{3,8}\b|0x[0-9a-fA-F]{6,8}\b|\b(?:rgba?|hsla?|oklch|oklab)\(|\bColors?\.\w|\.(?:purple|indigo|pink|blue|red|green|orange|yellow|white|black|gray|grey)\b/;
+
+// The text that holds the colors of the gradient named at `start`, so a color
+// after it (the next CSS rule, a child element's style, the next statement)
+// is never read as one of its stops (issue #67). Empty when the name is not a
+// gradient definition, e.g. a type like GradientDrawable.Orientation.
+function gradientScope(text, start, name) {
+  // An element: <LinearGradient colors={...}>, <gradient android:startColor=.../>,
+  // or an SVG <linearGradient> whose colors sit on its <stop> children. Other
+  // children (an expo-linear-gradient's <Text>) are content, not stops.
+  if (name.startsWith("<") || text[start - 1] === "<") {
+    const end = tagEnd(text, start);
+    if (end === -1) return text.slice(start, text.indexOf("\n", start) >>> 0);
+    let scope = text.slice(start, end + 1);
+    if (text[end - 1] !== "/") {
+      const close = text.indexOf(`</${name.replace(/^</, "")}`, end);
+      const body = text.slice(end + 1, close === -1 ? text.length : close);
+      // tagEnd() skips "{...}", so a ">" in a JSX expression (offset={i > 0 ...})
+      // does not cut the tag before its stopColor.
+      for (const stop of matches(/<stop\b/i, body)) {
+        const stopEnd = tagEnd(body, stop.index);
+        scope += body.slice(stop.index, stopEnd === -1 ? body.length : stopEnd + 1);
+      }
+    }
+    return scope;
+  }
+  // A call: linear-gradient(...), LinearGradient(colors: ...), Brush.linearGradient(...).
+  const paren = start + name.length + (text.slice(start + name.length).match(/^\s*/)?.[0].length ?? 0);
+  if (text[paren] !== "(") return "";
+  const end = closeOf(text, paren);
+  let scope = text.slice(start, end);
+  if (COLOR_SIGN.test(scope.slice(name.length))) return scope;
+  // A constructor that takes no colors (canvas createLinearGradient, Android
+  // GradientDrawable()): they come in a Kotlin .apply { } block right after,
+  // or in calls on the variable it is assigned to, for as long as that
+  // variable holds it (until it is assigned again).
+  const apply = /^\s*\.apply\s*\{/.exec(text.slice(end));
+  if (apply) scope += text.slice(end, closeOf(text, end + apply[0].length - 1));
+  // The assignment may sit on the line above: "const g =\n  ctx.create...".
+  const assigned = /([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?[\w$.]*$/.exec(text.slice(Math.max(0, start - 200), start));
+  if (assigned) {
+    // Identifier characters only, so "$" is the one character to escape. The
+    // lookbehind is the identifier boundary: \b fails before "$g", and a
+    // preceding "." would make it another object's member (other.g).
+    const variable = assigned[1].replace(/\$/g, "\\$");
+    const region = bindingRegion(text.slice(end), variable);
+    for (const call of matches(new RegExp(`(?<![\\w$.])${variable}\\.(?:addColorStop|setColors)\\s*\\(|(?<![\\w$.])${variable}\\.colors\\s*=(?!=)`), region)) {
+      const after = call.index + call[0].length;
+      let tail;
+      if (call[0].endsWith("(")) {
+        tail = closeOf(region, after - 1);
+      } else {
+        // `.colors = intArrayOf(...)` may span lines: read the value through
+        // its closing bracket, or to the end of the line for a plain value.
+        const at = after + /^\s*(?:new\s+)?[\w$.]*\s*/.exec(region.slice(after))[0].length;
+        tail = "([{".includes(region[at]) ? closeOf(region, at) : region.indexOf("\n", call.index) >>> 0;
+      }
+      scope += region.slice(call.index, tail);
+    }
+  }
+  return scope;
 }
 
 // ---------- rules ----------
@@ -251,8 +363,9 @@ const rules = [
       for (const m of matches(/(?<!<\/)(?:LinearGradient|linearGradient|RadialGradient|radialGradient|AngularGradient|Brush\.(?:linear|radial|horizontal|vertical|sweep)Gradient|linear-gradient|radial-gradient|GradientDrawable|<gradient\b)/, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
-        const snippet = code.slice(m.index, m.index + 400);
-        if (hexColors(snippet, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(snippet.slice(0, 250))) hits.push(m.index);
+        // Only the gradient's own stops count, not whatever follows it.
+        const stops = gradientScope(code, m.index, m[0]);
+        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
@@ -269,8 +382,16 @@ const rules = [
     message: "Gradient-filled text.",
     fix: "Emphasize with weight or size from the type scale, in a solid theme color.",
     find({ code }) {
-      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|brush\s*=\s*Brush\.\w+Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b/;
-      return [...matches(re, code)].map((m) => m.index);
+      const hits = [];
+      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b/;
+      for (const m of matches(re, code)) hits.push(m.index);
+      // Compose: only a brush passed to TextStyle/SpanStyle is gradient text.
+      // Modifier.background(brush = ...) and Modifier.border(..., brush = ...)
+      // are plain gradient surfaces, not text, so they stay with slop-gradient.
+      for (const m of matches(/brush\s*=\s*Brush\.\w+Gradient/, code)) {
+        if (isTextBrush(code, m.index)) hits.push(m.index);
+      }
+      return hits;
     },
   },
   {
@@ -280,8 +401,10 @@ const rules = [
     stacks: null,
     message: "The project template's default color is still the theme.",
     fix: "Pick the brand's own accent and define semantic roles (background, surface, text, accent, destructive). Ask first if that purple has become the brand.",
-    find({ code }) {
-      const re = /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/;
+    find({ code, stack }) {
+      const re = stack === "xml"
+        ? /#(?:[fF]{2})?(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/
+        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -292,15 +415,19 @@ const rules = [
     stacks: null,
     message: "Colored glow shadow.",
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
-    find({ code }) {
+    find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*([^,;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
         const value = m.slice(1).find(Boolean) || "";
-        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
+        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000(?:000)?(?:[0-9a-f]{2})?\b|#000[0-9a-f]\b|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
         const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
-        const hex = hexColors(value).some(isSaturated);
-        const rgb = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/.exec(value);
-        const rgbSat = rgb && Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60;
+        const hex = hexColors(value, stack).some(isSaturated);
+        const rgbRe = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/g;
+        let rgbSat = false;
+        let rgb;
+        while ((rgb = rgbRe.exec(value))) {
+          if (Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60) { rgbSat = true; break; }
+        }
         if (named || hex || rgbSat) hits.push(m.index);
       }
       return hits;
@@ -362,13 +489,13 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       if (stack === "js" || stack === "web") {
-        for (const m of matches(/<(Card|ion-card)\b[^>]*?(\/?)>/, code)) {
+        for (const m of matches(/<(Card|ion-card)(?=[\s/>])[^>]*?(\/?)>/, code)) {
           if (m[2] === "/") continue;
           const tag = m[1];
           const close = code.indexOf(`</${tag}>`, m.index);
           if (close === -1) continue;
           const inner = code.slice(m.index + m[0].length, close);
-          if (new RegExp(`<${tag}\\b`).test(inner)) hits.push(m.index);
+          if (new RegExp(`<${tag}(?=[\\s/>])`).test(inner)) hits.push(m.index);
         }
       } else {
         const card = /\b(?:Elevated|Outlined|Filled)?Card\s*[({]/;
@@ -391,7 +518,10 @@ const rules = [
     message: "Blur and glass used on several surfaces in one file.",
     fix: "Keep system materials behind bars and sheets. Make content surfaces opaque.",
     find({ code }) {
-      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(/, code)];
+      // Tailwind: backdrop-blur, backdrop-blur-<size> and backdrop-blur-[...]
+      // count as blur surfaces. backdrop-blur-none removes the blur, so it
+      // does not count.
+      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)/, code)];
       return all.length >= 3 ? [all[0].index] : [];
     },
   },
@@ -403,7 +533,7 @@ const rules = [
     message: "Sparkle icon. It usually marks an AI feature or stands in for meaning.",
     fix: "Use an icon that names the action, or a text label. If it marks an AI feature, make sure that feature is not in the way of the core task.",
     find({ code }) {
-      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|✨/;
+      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -683,7 +813,7 @@ const rules = [
     message: "Social proof or speed claim that the page does not back up.",
     fix: "Use a real, sourced number with what it compares to, or remove it. Never ship invented customer counts, logo walls, or testimonials.",
     find({ code }) {
-      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
+      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -696,10 +826,17 @@ const rules = [
     fix: "Use a <button> for actions and an <a href> for navigation. They come with focus, Enter and Space, and the right role.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<(?:div|span|li|td|img)\b[^<>]*?\s(?:onClick|@click|v-on:click|on:click)\s*=/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|img|a)\b[^<>]*?\s(?:onClick|@click|v-on:click|on:click)\s*=/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
-        if (/\brole\s*=|\btab[iI]ndex\s*=/.test(tag)) continue;
+        if (/^<a\b/.test(tag)) {
+          // An anchor is a real link only when it has an href; a bare
+          // <a onClick> is not focusable and is not announced as a control.
+          // The one escape hatch is a button role with a tabIndex, which
+          // makes it behave like a button for keyboard and screen readers.
+          if (/(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
+          if (/\brole\s*=\s*["'{]*button/.test(tag) && /\btab[iI]ndex\s*=/.test(tag)) continue;
+        } else if (/\brole\s*=|\btab[iI]ndex\s*=/.test(tag)) continue;
         hits.push(m.index);
       }
       return hits;
@@ -717,7 +854,10 @@ const rules = [
       for (const m of matches(/["'`][^"'`\n]*\b(?:focus:)?outline-none\b[^"'`\n]*["'`]/, code)) {
         // Focus styles often sit in another string of the same cn(...) call.
         const around = code.slice(Math.max(0, m.index - 400), m.index + m[0].length + 400);
-        if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(around)) continue;
+        // The matched token itself may be `focus:outline-none`; its `focus:`
+        // must not count as the replacement focus style it is missing.
+        const withoutMatch = around.replace(/\bfocus:outline-none\b/g, "");
+        if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(withoutMatch)) continue;
         hits.push(m.index);
       }
       if ((stack === "css" || stack === "web") && !/focus-visible/.test(code)) {
@@ -735,9 +875,10 @@ const rules = [
     fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<img(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
         if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
       }
       return hits;

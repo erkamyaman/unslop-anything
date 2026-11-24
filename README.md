@@ -143,9 +143,9 @@ It catches purple gradients and the project template's leftover purple, nested c
 
 On the web it adds clickable divs, removed focus rings, disabled zoom, images without alt text, tracked-caps eyebrows, icons in tinted squares, `transition-all`, cards that grow on hover, things that pulse forever, and "Trusted by 10,000+ teams".
 
-It reads the nearest `package.json` to tell a phone app from a website, so hover is a problem in your Expo app and fine on your Next.js site. `--platform web`, `--platform mobile`, or `--platform universal` settles it when it guesses wrong. Use `universal` when the project ships to both phone and web so both rule sets apply.
+It reads the nearest `package.json` to tell a phone app from a website, so hover is a problem in your Expo app and fine on your Next.js site. `--platform web`, `--platform mobile`, or `--platform universal` settles it when it guesses wrong. Use `universal` when the project ships to both phone and web (React Native Web, Expo web). Phone-only rules, such as hover-only, are skipped.
 
-Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML), or a whole rule in `.unslop-anything/config.json`:
+Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML, `/* unslop-anything-ignore <rule-id> */` in CSS), or a whole rule in `.unslop-anything/config.json`:
 
 ```json
 { "ignoreRules": ["status-dot"], "ignorePaths": ["src/legacy/"] }
