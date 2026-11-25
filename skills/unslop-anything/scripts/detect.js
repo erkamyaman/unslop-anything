@@ -399,6 +399,23 @@ function closeOf(text, open) {
   return text.length;
 }
 
+// Like closeOf() for "(", but a parenthesis inside a quoted string does not count, so
+// cn("before:content-['(']", ...) still ends at its own closing parenthesis.
+function callEnd(text, open) {
+  let depth = 0;
+  let quote = null;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'" || c === "`") quote = c;
+    else if (c === "(") depth++;
+    else if (c === ")" && --depth === 0) return i + 1;
+  }
+  return text.length;
+}
+
 // The part of `rest` (the text after a gradient's constructor) during which
 // `variable` still holds that gradient: up to the end of the enclosing block,
 // or up to the variable's next assignment. A declaration of the same name in a
@@ -542,7 +559,7 @@ const rules = [
         const from = Math.max(0, m.index - 400);
         for (const c of matches(/\b(?:cn|cx|clsx|classnames|classNames|twMerge|twJoin)\s*\(/, code.slice(from, m.index))) {
           const open = from + c.index + c[0].length - 1;
-          const close = closeOf(code, open);
+          const close = callEnd(code, open);
           // The outermost call that holds the string: a nested clsx(...) keeps the outer stops.
           if (close > m.index) {
             scope = code.slice(open, close);
