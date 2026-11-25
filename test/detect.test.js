@@ -862,6 +862,20 @@ test("clickable-div requires both an interactive role and tabIndex on div/span/l
   assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" on:click={open}>Open</div>\n', "A.svelte"), []);
 });
 
+test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue #141)", () => {
+  const lines = (src, file) => scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  const svelte = '<script>\n  let open = $state(false);\n</script>\n\n<div class="card" onclick={() => (open = true)}>Details</div>\n';
+  assert.deepStrictEqual(lines(svelte, "Card.svelte"), [5]);
+  assert.deepStrictEqual(lines('<div class="card" onclick="openCard()">Details</div>\n', "page.html"), [1]);
+  assert.deepStrictEqual(lines('<span onclick="toggle()">More</span>\n', "page.html"), [1]);
+  // The exemptions still apply: an anchor with href, or an interactive role and tabindex.
+  assert.deepStrictEqual(lines('<a href="/details" onclick="track()">Details</a>\n', "page.html"), []);
+  assert.deepStrictEqual(lines('<a href={url} onclick={track}>Details</a>\n', "Card.svelte"), []);
+  assert.deepStrictEqual(lines('<div role="button" tabindex="0" onclick={open}>Open</div>\n', "Card.svelte"), []);
+  // A real button with onclick is fine.
+  assert.deepStrictEqual(lines('<button onclick="openCard()">Details</button>\n', "page.html"), []);
+});
+
 test("focus-removed flags a bare focus:outline-none, not one with a ring replacement", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor('<input className="focus:outline-none" />\n'), ["focus-removed"]);
