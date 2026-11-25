@@ -862,6 +862,11 @@ test("clickable-div requires both an interactive role and tabIndex on div/span/l
   assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" on:click={open}>Open</div>\n', "A.svelte"), []);
 });
 
+test("tagEnd skips strings inside an attribute expression", () => {
+  const imgs = (code) => scanSource(code, "A.tsx").filter((f) => f.rule === "img-no-alt");
+  assert.deepStrictEqual(imgs('<img onLoad={() => loaded("}")} alt="Photo" src={src} />\n').length, 0);
+});
+
 test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue #141)", () => {
   const lines = (src, file) => scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
   const svelte = '<script>\n  let open = $state(false);\n</script>\n\n<div class="card" onclick={() => (open = true)}>Details</div>\n';
@@ -882,6 +887,8 @@ test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue 
   assert.deepStrictEqual(lines("<div on:keydown={(e) => handleKey(e)} onclick={open}>Open</div>\n", "A.svelte"), [1]);
   assert.deepStrictEqual(lines('<div title="a > b" onclick="go()">x</div>\n', "page.html"), [1]);
   assert.deepStrictEqual(lines('<a title="a > b" href="/x" onclick="go()">x</a>\n', "page.html"), []);
+  // A handler of a nested element inside an attribute belongs to that element.
+  assert.deepStrictEqual(lines('<div render={<span role="button" tabIndex={0} onClick={x}>Open</span>} />\n', "A.tsx"), []);
   // A real button with onclick is fine.
   assert.deepStrictEqual(lines('<button onclick="openCard()">Details</button>\n', "page.html"), []);
 });
