@@ -524,6 +524,17 @@ test("gradient-text flags text brushes only, not gradient backgrounds (issue #66
   assert.deepStrictEqual(scanSource(copied, "a.kt").map((f) => f.rule), ["gradient-text"]);
 });
 
+test("gradient-text flags Flutter text painted with a gradient shader (issue #147)", () => {
+  const lines = (src) => scanSource(src, "title.dart").filter((f) => f.rule === "gradient-text").map((f) => f.line);
+  const title = "Text('Welcome', style: TextStyle(foreground: Paint()..shader = const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF22C55E)]).createShader(bounds)))\n";
+  assert.deepStrictEqual(lines(title), [1]);
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader = RadialGradient(colors: c).createShader(r))\n"), [1]);
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader=SweepGradient(colors: c).createShader(r))\n"), [1]);
+  // A solid paint is not gradient text.
+  assert.deepStrictEqual(lines("Text('Hi', style: TextStyle(foreground: Paint()..color = Colors.black))\n"), []);
+  assert.deepStrictEqual(lines("final p = Paint()..shader = ui.Gradient.linear(a, b, colors);\n"), []);
+});
+
 test("0xRRGGBB colors are read alongside 0xFFRRGGBB", () => {
   // Issue #42: the common Swift form Color(hex: 0x7C3AED) was missed.
   const shadow = 'Text("x").shadow(color: Color(hex: 0x7C3AED), radius: 20)\n';
