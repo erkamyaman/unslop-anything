@@ -131,6 +131,18 @@ test("oops-error ignores log calls and thrown errors", () => {
   assert.deepStrictEqual(scanSource('const msg = "Oops, something went wrong";\n', "a.ts").map((f) => f.rule), ["oops-error"]);
 });
 
+test("oops-error flags Whoops but not loops or hoops", () => {
+  // Issue #129: the issue's repro, both lines reported.
+  const src = 'export function A() {\n  return <p>Oops! We could not load your orders.</p>;\n}\nexport function B() {\n  return <p>Whoops! We could not load your orders.</p>;\n}\n';
+  assert.deepStrictEqual(
+    scanSource(src, "ErrorState.tsx").filter((f) => f.rule === "oops-error").map((f) => f.line),
+    [2, 5],
+  );
+  // Words that only contain the letters stay quiet.
+  assert.deepStrictEqual(scanSource('const a = "loops"; const b = "hoops";\n', "a.ts"), []);
+  assert.deepStrictEqual(scanSource('const a = "whoopsie";\n', "a.ts"), []);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
