@@ -397,6 +397,11 @@ test("vague-button reads the value of a submit or button input (issue #145)", ()
   // data-value and data-type are not the label or the type.
   assert.deepStrictEqual(lines('<input type="submit" data-value="Submit" value="Send order">\n'), []);
   assert.deepStrictEqual(lines('<input data-type="submit" value="Submit">\n'), []);
+  // A comparison in a JSX prop does not end the tag; the type must be exact.
+  assert.deepStrictEqual(lines('<input type="submit" disabled={count > 0} value="Submit" />\n', "Form.tsx"), [1]);
+  assert.deepStrictEqual(lines('<input type="button-group" value="Submit">\n'), []);
+  assert.deepStrictEqual(lines('<input type="text" title="type=submit" value="Submit">\n'), []);
+  assert.deepStrictEqual(lines("<input type=submit value=Submit>\n"), [1]);
 });
 
 test("transition-all stops at the quote that ends a CSS-in-JS value", () => {
