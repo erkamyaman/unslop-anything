@@ -543,7 +543,11 @@ const rules = [
         for (const c of matches(/\b(?:cn|cx|clsx|classnames|classNames|twMerge|twJoin)\s*\(/, code.slice(from, m.index))) {
           const open = from + c.index + c[0].length - 1;
           const close = closeOf(code, open);
-          if (close > m.index) scope = code.slice(open, close);
+          // The outermost call that holds the string: a nested clsx(...) keeps the outer stops.
+          if (close > m.index) {
+            scope = code.slice(open, close);
+            break;
+          }
         }
         // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777].
         const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");

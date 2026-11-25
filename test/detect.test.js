@@ -471,6 +471,8 @@ test("slop-gradient reads Tailwind arbitrary hex stops (issue #143)", () => {
   assert.deepStrictEqual(lines('<div className={clsx("bg-gradient-to-r", active && "from-violet-600", "to-pink-500")} />\n', "Hero.tsx"), [1]);
   assert.deepStrictEqual(lines('<div className={cn("bg-gradient-to-r", "from-sky-500 to-cyan-500")} />\n', "Hero.tsx"), []);
   assert.deepStrictEqual(lines('const a = cn("bg-gradient-to-r from-sky-500 to-cyan-500");\nconst b = cn("from-violet-600");\n', "Hero.tsx"), []);
+  // A nested class call does not hide the outer call's stops.
+  assert.deepStrictEqual(lines('<div className={cn("from-violet-600", clsx("bg-gradient-to-r", "to-cyan-500"))} />\n', "Hero.tsx"), [1]);
   // A purple outside a gradient class string is not a stop.
   assert.deepStrictEqual(lines('<div class="bg-[#7c3aed] text-white">Hello</div>\n', "Hero.html"), []);
 });
