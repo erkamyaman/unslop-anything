@@ -537,7 +537,9 @@ const rules = [
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
-        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(m[0])) hits.push(m.index);
+        // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777].
+        const arbitrary = [...m[0].matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");
+        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(m[0]) || hexColors(arbitrary, stack).some(isSlopHue)) hits.push(m.index);
       }
       return hits;
     },
