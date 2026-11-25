@@ -192,6 +192,9 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   // A semicolon inside a string does not split the statement.
   assert.deepStrictEqual(buzz('const title = "Try; unleash(your potential)";\n', "copy.ts"), [1]);
   assert.deepStrictEqual(buzz('const label = "Wait; go", enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
+  // A quote inside a regex literal does not open a string.
+  assert.deepStrictEqual(buzz('const pattern = /"/; const title = "unleash(your potential)";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz('const pattern = /"/; const enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
   // Names inside a multi-line import clause are not copy.
   assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);

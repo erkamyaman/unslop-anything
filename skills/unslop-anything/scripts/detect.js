@@ -1185,7 +1185,7 @@ const rules = [
     stacks: null,
     message: "Marketing filler in the interface.",
     fix: "Say what the screen does in plain words, or delete the line.",
-    find({ code }) {
+    find({ code, stack }) {
       const re = /unlock (?:your|the) (?:full )?potential|\bseamless(?:ly)?\b|\beffortless(?:ly)?\b|\bsupercharg\w*|all in one place|\bnext[- ]level\b|\belevate your\b|\bgame[- ]?changer\b|\brevolutioni[sz]\w*|\bunleash\b|\bempower(?:s|ing)? you/i;
       const hits = [];
       for (const m of matches(re, code)) {
@@ -1203,6 +1203,8 @@ const rules = [
             else if (c === quote) quote = null;
           } else if (c === '"' || c === "'" || c === "`") quote = c;
           else if (c === ";") statement = i + 1;
+          // a regex literal such as /"/ holds no string delimiters
+          else if (c === "/" && stack === "js" && isRegexStart(line, i)) i = skipRegex(line, i) - 1;
         }
         const before = line.slice(statement);
         const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
