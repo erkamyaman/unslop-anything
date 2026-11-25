@@ -1321,3 +1321,14 @@ test("drawer-nav catches both line.3.horizontal and older line.horizontal.3 SF S
     [],
   );
 });
+
+test("drawer-nav catches every style of the hamburger icon (issue #146)", () => {
+  const lines = (src, file) => scanSource(src, file).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+  for (const icon of ["menu_rounded", "menu_outlined", "menu_sharp"]) {
+    assert.deepStrictEqual(lines(`IconButton(icon: const Icon(Icons.${icon}), onPressed: openDrawer)\n`, "header.dart"), [1], icon);
+  }
+  assert.deepStrictEqual(lines('<Ionicons name="menu-sharp" size={24} />\n', "Header.tsx"), [1]);
+  // menu_book is a different icon.
+  assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
+  assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
+});
