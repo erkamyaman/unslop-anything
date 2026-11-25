@@ -28,6 +28,7 @@ const STACK_BY_EXT = {
   ".xml": "xml",
   ".css": "css",
   ".scss": "css",
+  ".less": "css",
 };
 
 const SKIP_DIRS = new Set([
