@@ -1190,29 +1190,33 @@ const rules = [
     find({ code, stack }) {
       const re = /unlock (?:your|the) (?:full )?potential|\bseamless(?:ly)?\b|\beffortless(?:ly)?\b|\bsupercharg\w*|all in one place|\bnext[- ]level\b|\belevate your\b|\bgame[- ]?changer\b|\brevolutioni[sz]\w*|\bunleash\b|\bempower(?:s|ing)? you/i;
       const hits = [];
+      // Only the current statement counts: copy after `import x from "y";` is still copy.
+      // One pass over each line, carried from match to match: the last `;` outside a string
+      // ends the previous statement, and the quote still open at a match says whether the
+      // match sits inside a string. A newline starts over.
+      let pos = 0;
+      let quote = null;
+      let statement = 0;
       for (const m of matches(re, code)) {
-        const lineStart = code.lastIndexOf("\n", m.index) + 1;
-        // Only the current statement counts: copy after `import x from "y";` is still copy.
-        // One pass over the line: the last `;` outside a string ends the previous statement, and
-        // the quote still open at the match says whether the match sits inside a string.
-        const line = code.slice(lineStart, m.index);
-        let quote = null;
-        let statement = 0;
-        for (let i = 0; i < line.length; i++) {
-          const c = line[i];
-          if (quote) {
-            if (c === "\\") i++;
+        for (; pos < m.index; pos++) {
+          const c = code[pos];
+          if (c === "\n") {
+            quote = null;
+            statement = pos + 1;
+          } else if (quote) {
+            if (c === "\\") pos++;
             else if (c === quote) quote = null;
           } else if (c === '"' || c === "'" || c === "`") quote = c;
-          else if (c === ";") statement = i + 1;
+          else if (c === ";") statement = pos + 1;
           // a regex literal such as /"/ holds no string delimiters
-          else if (c === "/" && stack === "js" && isRegexStart(line, i)) i = skipRegex(line, i) - 1;
+          else if (c === "/" && stack === "js" && isRegexStart(code, pos)) pos = skipRegex(code, pos) - 1;
         }
-        const before = line.slice(statement);
-        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
+        // The checks below look at most 2000 characters back, so a long line costs the same per match.
+        const before = code.slice(Math.max(statement, m.index - 2000), m.index);
+        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 20);
         // An import line, or a package name in a module string
         // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
-        if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(before)) continue;
+        if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(code.slice(statement, Math.min(m.index, statement + 400)))) continue;
         if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
         // A name inside a multi-line `import { ... }` or `export { ... }` clause.
         if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^};`]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
@@ -1222,6 +1226,8 @@ const rules = [
         const inString = quote !== null;
         if (/^unleash$/i.test(m[0]) && !inString) {
           if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
+          // `unleash.Client`, `unleash .isEnabled()`, `= unleash;`, `return unleash;`
+          if (/^unleash$/.test(m[0]) && (/^(?:\.[A-Za-z_$]|\s+\.[A-Za-z_$])/.test(after) || (/(?:[=(]|\breturn)\s*$/.test(before) && /^\s*[;,)]/.test(after)))) continue;
           if (/^\(/.test(after) && (/^u/.test(m[0]) || /\bnew\s+$/.test(before))) continue;
           if (/^unleash$/.test(m[0]) && /[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)) continue;
         }

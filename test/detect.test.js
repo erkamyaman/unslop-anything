@@ -192,6 +192,15 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   // A semicolon inside a string does not split the statement.
   assert.deepStrictEqual(buzz('const title = "Try; unleash(your potential)";\n', "copy.ts"), [1]);
   assert.deepStrictEqual(buzz('const label = "Wait; go", enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
+  // Other code references to an unleash client are not copy.
+  assert.deepStrictEqual(buzz("const client = unleash;\nreturn unleash;\n", "flags.ts"), []);
+  assert.deepStrictEqual(buzz("const c = new unleash.Client(cfg);\nunleash .isEnabled(\"flag\");\n", "flags.ts"), []);
+  assert.deepStrictEqual(buzz("<p>Unleash. Your team, faster.</p>\n", "page.html"), [1]);
+  // A long line with many matches is read once, not once per match.
+  const many = Array.from({ length: 4000 }, (_, i) => `<p>seamless v${i}</p>`).join("") + "\n";
+  const started = Date.now();
+  assert.deepStrictEqual(buzz(many, "page.html"), [1]);
+  assert.ok(Date.now() - started < 200, `took ${Date.now() - started} ms`);
   // A quote inside a regex literal does not open a string.
   assert.deepStrictEqual(buzz('const ratio = count++ / 2; const title = "unleash(your potential)";\n', "copy.ts"), [1]);
   assert.deepStrictEqual(buzz('const ratio = count-- / 2; const enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
