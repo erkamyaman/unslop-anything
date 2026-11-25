@@ -1193,15 +1193,17 @@ const rules = [
         const back = code.slice(Math.max(0, m.index - 300), m.index);
         const before = back.slice(back.lastIndexOf("\n") + 1);
         const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
-        // A package name in a module string (`from "@unleash/..."`, `require("unleash-client")`),
-        // a name on an import line, or a name inside a multi-line `import { ... }` clause is not copy.
-        if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
+        // A package name in a module string (`from "@unleash/..."`, `require("unleash-client")`, also
+        // with the string on the next line), a name on an import line, or a name inside a multi-line
+        // `import { ... }` clause is not copy.
+        if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`\n]*$/.test(back)) continue;
         if (/^\s*import\b[^"'`;]*$/.test(before)) continue;
         if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^};`]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
         // Nor is unleash used as code: `const unleash = ...`, `new Unleash(...)`,
         // `unleash.isEnabled(...)`, `{ unleash }`, `{ unleash: cfg }`.
         if (/^unleash$/i.test(m[0]) && /\b(?:const|let|var|new)\s+$/.test(before)) continue;
-        if (m[0] === "unleash" && (/^\.[A-Za-z_$]/.test(after) || (/[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)))) continue;
+        // An object key or destructured name needs a brace or a key colon, so `Dream, unleash, create.` is copy.
+        if (m[0] === "unleash" && (/^\.[A-Za-z_$]/.test(after) || (/\{\s*$/.test(before) && /^\s*[:,}]/.test(after)) || (/,\s*$/.test(before) && /^\s*[:}]/.test(after)))) continue;
         hits.push(m.index);
       }
       return hits;

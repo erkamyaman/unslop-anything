@@ -173,10 +173,12 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('const { UnleashClient } = require("unleash-client");\n', "flags.js"), []);
   assert.deepStrictEqual(buzz('import Unleash from "unleash-client";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('import { useFlag } from\n  "@unleash/proxy-client-react";\n', "flags.ts"), []);
   // Identifiers
   assert.deepStrictEqual(buzz('const unleash = new UnleashClient({ url });\nif (unleash.isEnabled("x")) start();\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz("const client = new Unleash({ url });\n", "flags.ts"), []);
   assert.deepStrictEqual(buzz("const { unleash } = useApp();\nconst cfg = { unleash: { url }, other: 1 };\n", "flags.ts"), []);
+  assert.deepStrictEqual(buzz("const { client, unleash } = useApp();\n", "flags.ts"), []);
   // Copy is still flagged, also next to an import or after a multi-line import clause.
   assert.deepStrictEqual(buzz("<h1>Unleash your creativity</h1>\n", "Hero.tsx"), [1]);
   assert.deepStrictEqual(buzz('const title = "Unleash your team";\n', "copy.ts"), [1]);
@@ -184,6 +186,8 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('import { useFlag } from "sdk"; const title = "Unleash your team";\n', "copy.ts"), [1]);
   assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);
   assert.deepStrictEqual(buzz("<h2>Fast.Secure.Seamless.Simple.</h2>\n", "Hero.tsx"), [1]);
+  assert.deepStrictEqual(buzz("<h1>Dream, unleash, create.</h1>\n", "Hero.tsx"), [1]);
+  assert.deepStrictEqual(buzz('import x from "y";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [2]);
 });
 
 test("ignore comments from before the rename still work", () => {
