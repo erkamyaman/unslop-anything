@@ -872,6 +872,11 @@ test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue 
   assert.deepStrictEqual(lines('<a href="/details" onclick="track()">Details</a>\n', "page.html"), []);
   assert.deepStrictEqual(lines('<a href={url} onclick={track}>Details</a>\n', "Card.svelte"), []);
   assert.deepStrictEqual(lines('<div role="button" tabindex="0" onclick={open}>Open</div>\n', "Card.svelte"), []);
+  // Event modifiers: Vue @click.stop, Svelte 4 on:click|preventDefault.
+  assert.deepStrictEqual(lines('<div @click.stop="open">x</div>\n', "A.vue"), [1]);
+  assert.deepStrictEqual(lines('<div v-on:click.prevent.self="open">x</div>\n', "A.vue"), [1]);
+  assert.deepStrictEqual(lines("<div on:click|preventDefault={open}>x</div>\n", "A.svelte"), [1]);
+  assert.deepStrictEqual(lines('<div role="button" tabindex="0" @click.stop="open">x</div>\n', "A.vue"), []);
   // A real button with onclick is fine.
   assert.deepStrictEqual(lines('<button onclick="openCard()">Details</button>\n', "page.html"), []);
 });

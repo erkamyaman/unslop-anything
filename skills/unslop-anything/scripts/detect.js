@@ -1043,7 +1043,7 @@ const rules = [
     fix: "Use a <button> for actions and an <a href> for navigation. They come with focus, Enter and Space, and the right role.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<(?:div|span|li|td|img|a)\b[^<>]*?\s(?:on[cC]lick|@click|v-on:click|on:click)\s*=/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|img|a)\b[^<>]*?\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
