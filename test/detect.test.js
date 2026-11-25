@@ -179,6 +179,7 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz("const client = new Unleash({ url });\n", "flags.ts"), []);
   assert.deepStrictEqual(buzz("const { unleash } = useApp();\nconst cfg = { unleash: { url }, other: 1 };\n", "flags.ts"), []);
   assert.deepStrictEqual(buzz("const { client, unleash } = useApp();\n", "flags.ts"), []);
+  assert.deepStrictEqual(buzz("const { client, unleash, other } = useApp();\n", "flags.ts"), []);
   // Copy is still flagged, also next to an import or after a multi-line import clause.
   assert.deepStrictEqual(buzz("<h1>Unleash your creativity</h1>\n", "Hero.tsx"), [1]);
   assert.deepStrictEqual(buzz('const title = "Unleash your team";\n', "copy.ts"), [1]);
@@ -187,6 +188,9 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);
   assert.deepStrictEqual(buzz("<h2>Fast.Secure.Seamless.Simple.</h2>\n", "Hero.tsx"), [1]);
   assert.deepStrictEqual(buzz("<h1>Dream, unleash, create.</h1>\n", "Hero.tsx"), [1]);
+  // `from` in copy is not an import.
+  assert.deepStrictEqual(buzz('<p>Choose from "seamless integrations"</p>\n', "Cta.tsx"), [1]);
+  assert.deepStrictEqual(buzz('<p>Choose from\n"seamless integrations"</p>\n', "Cta.tsx"), [2]);
   assert.deepStrictEqual(buzz('import x from "y";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [2]);
 });
 
