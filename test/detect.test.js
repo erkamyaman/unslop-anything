@@ -530,8 +530,13 @@ test("gradient-text flags Flutter text painted with a gradient shader (issue #14
   assert.deepStrictEqual(lines(title), [1]);
   assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader = RadialGradient(colors: c).createShader(r))\n"), [1]);
   assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader=SweepGradient(colors: c).createShader(r))\n"), [1]);
-  // A solid paint is not gradient text.
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader = ui.Gradient.linear(a, b, colors))\n"), [1]);
+  // Other cascades may come first, also on their own lines as dart format writes them.
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..style = PaintingStyle.fill..shader = LinearGradient(colors: c).createShader(r))\n"), [1]);
+  assert.deepStrictEqual(lines("TextStyle(\n  foreground: Paint()\n    ..color = Colors.red.withOpacity(0.5)\n    ..shader = const LinearGradient(colors: c).createShader(r),\n)\n"), [2]);
+  // A solid paint is not gradient text, even with a gradient later on the line.
   assert.deepStrictEqual(lines("Text('Hi', style: TextStyle(foreground: Paint()..color = Colors.black))\n"), []);
+  assert.deepStrictEqual(lines("Text('a', style: TextStyle(foreground: Paint()..color = c)); final p = Paint()..shader = LinearGradient(colors: c).createShader(r);\n"), []);
   assert.deepStrictEqual(lines("final p = Paint()..shader = ui.Gradient.linear(a, b, colors);\n"), []);
 });
 
