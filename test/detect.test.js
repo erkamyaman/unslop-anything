@@ -174,6 +174,10 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('import Unleash from "unleash-client";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import { useFlag } from\n  "@unleash/proxy-client-react";\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('const sdk = require(\n  "unleash-client");\n<h1>Unleash your team</h1>\n', "flags.ts"), [3]);
+  assert.deepStrictEqual(buzz('const m = await import(\n  "@unleash/proxy-client-react");\n<h1>Unleash your team</h1>\n', "flags.ts"), [3]);
+  assert.deepStrictEqual(buzz('import "unleash-client";\n<h1>Unleash your team</h1>\n', "flags.ts"), [2]);
+  assert.deepStrictEqual(buzz('import "unleash-client"; const title = "Unleash your team";\n', "flags.ts"), [1]);
   // Identifiers
   assert.deepStrictEqual(buzz('const unleash = new UnleashClient({ url });\nif (unleash.isEnabled("x")) start();\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz("const client = new Unleash({ url });\n", "flags.ts"), []);

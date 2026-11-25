@@ -1197,7 +1197,9 @@ const rules = [
         // with the string on the next line), a name on an import line, or a name inside a multi-line
         // `import { ... }` clause is not copy.
         if (/\b(?:import|export)\b[^;"'`]*\bfrom\s*["'`][^"'`\n]*$/.test(back)) continue;
-        if (/\b(?:import|require)\s*\(\s*["'`][^"'`]*$/.test(before)) continue;
+        if (/\b(?:import|require)\s*\(\s*["'`][^"'`\n]*$/.test(back)) continue;
+        // a side-effect import: `import "unleash-client";`
+        if (/(?:^|[\n;])\s*import\s+["'`][^"'`\n]*$/.test(back)) continue;
         if (/^\s*import\b[^"'`;]*$/.test(before)) continue;
         if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^};`]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
         // Nor is unleash used as code: `const unleash = ...`, `new Unleash(...)`,
