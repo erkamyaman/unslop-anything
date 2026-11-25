@@ -466,6 +466,11 @@ test("slop-gradient reads Tailwind arbitrary hex stops (issue #143)", () => {
   assert.deepStrictEqual(lines('<div className="bg-gradient-to-b from-[#0ea5e9] to-[#7c3aed]" />\n', "Hero.tsx"), [1]);
   // A gradient with no purple or pink stop stays quiet.
   assert.deepStrictEqual(lines('<div class="bg-gradient-to-r from-[#0ea5e9] to-[#22c55e] p-8">Hello</div>\n', "Hero.html"), []);
+  // Stops in another string of the same cn(...) call count; another call's do not.
+  assert.deepStrictEqual(lines('<div className={cn("bg-gradient-to-r", "from-[#7c3aed] to-[#db2777]")} />\n', "Hero.tsx"), [1]);
+  assert.deepStrictEqual(lines('<div className={clsx("bg-gradient-to-r", active && "from-violet-600", "to-pink-500")} />\n', "Hero.tsx"), [1]);
+  assert.deepStrictEqual(lines('<div className={cn("bg-gradient-to-r", "from-sky-500 to-cyan-500")} />\n', "Hero.tsx"), []);
+  assert.deepStrictEqual(lines('const a = cn("bg-gradient-to-r from-sky-500 to-cyan-500");\nconst b = cn("from-violet-600");\n', "Hero.tsx"), []);
   // A purple outside a gradient class string is not a stop.
   assert.deepStrictEqual(lines('<div class="bg-[#7c3aed] text-white">Hello</div>\n', "Hero.html"), []);
 });

@@ -537,9 +537,17 @@ const rules = [
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
+        // The stops may sit in another string of the same cn(...) / clsx(...) call.
+        let scope = m[0];
+        const from = Math.max(0, m.index - 400);
+        for (const c of matches(/\b(?:cn|cx|clsx|classnames|classNames|twMerge|twJoin)\s*\(/, code.slice(from, m.index))) {
+          const open = from + c.index + c[0].length - 1;
+          const close = closeOf(code, open);
+          if (close > m.index) scope = code.slice(open, close);
+        }
         // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777].
-        const arbitrary = [...m[0].matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");
-        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(m[0]) || hexColors(arbitrary, stack).some(isSlopHue)) hits.push(m.index);
+        const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");
+        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(scope) || hexColors(arbitrary, stack).some(isSlopHue)) hits.push(m.index);
       }
       return hits;
     },
