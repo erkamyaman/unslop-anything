@@ -551,7 +551,7 @@ const rules = [
     fix: "Emphasize with weight or size from the type scale, in a solid theme color.",
     find({ code }) {
       const hits = [];
-      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b|\bforeground\s*:\s*\(?\s*Paint\(\)(?:\s*\.\.(?!shader\b)\w+\s*=[^;\n(),]*?(?:\((?:[^()]|\([^()]*\))*\)[^;\n(),]*?)*?)*?\s*\.\.shader\s*=\s*(?:const\s+)?(?:(?:Linear|Radial|Sweep)Gradient\b|ui\.Gradient\.(?:linear|radial|sweep)\b)/;
+      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b|\bforeground\s*:\s*\(?\s*Paint\(\)(?:\s*\.\.(?!shader\b)\w+\s*=[^;\n(),]*?(?:\((?:[^()]|\([^()]*\))*\)[^;\n(),]*?)*?)*?\s*\.\.shader\s*=\s*\(?\s*(?:const\s+)?(?:(?:Linear|Radial|Sweep)Gradient\b|ui\.Gradient\.(?:linear|radial|sweep)\b)/;
       for (const m of matches(re, code)) hits.push(m.index);
       // Compose: only a brush passed to TextStyle/SpanStyle is gradient text.
       // Modifier.background(brush = ...) and Modifier.border(..., brush = ...)

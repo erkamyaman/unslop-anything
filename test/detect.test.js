@@ -538,6 +538,7 @@ test("gradient-text flags Flutter text painted with a gradient shader (issue #14
   assert.deepStrictEqual(lines("Text('Hi', style: TextStyle(foreground: Paint()..color = Colors.black))\n"), []);
   assert.deepStrictEqual(lines("Text('a', style: TextStyle(foreground: Paint()..color = c)); final p = Paint()..shader = LinearGradient(colors: c).createShader(r);\n"), []);
   assert.deepStrictEqual(lines("TextStyle(foreground: (Paint()..shader = LinearGradient(colors: c).createShader(r)))\n"), [1]);
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..shader = (LinearGradient(colors: c)).createShader(r))\n"), [1]);
   // The next argument is not part of the foreground paint.
   assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..color = c, background: Paint()..shader = LinearGradient(colors: c).createShader(r))\n"), []);
   // Nested and multi-line calls in an earlier cascade.
