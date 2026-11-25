@@ -392,6 +392,11 @@ test("vague-button reads the value of a submit or button input (issue #145)", ()
   assert.deepStrictEqual(lines('<input value="Submit">\n'), []);
   assert.deepStrictEqual(lines('<select><option value="Submit">Send it</option></select>\n'), []);
   assert.deepStrictEqual(lines('<input type="submit" value="Save address">\n'), []);
+  // An arrow-function prop before value does not end the tag.
+  assert.deepStrictEqual(lines('<input type="submit" onClick={() => go()} value="Submit" />\n', "Form.tsx"), [1]);
+  // data-value and data-type are not the label or the type.
+  assert.deepStrictEqual(lines('<input type="submit" data-value="Submit" value="Send order">\n'), []);
+  assert.deepStrictEqual(lines('<input data-type="submit" value="Submit">\n'), []);
 });
 
 test("transition-all stops at the quote that ends a CSS-in-JS value", () => {

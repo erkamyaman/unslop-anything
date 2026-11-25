@@ -1218,7 +1218,7 @@ const rules = [
     fix: "Use a verb and an object: \"Save address\", \"Send invoice\", \"Book table\".",
     find({ code }) {
       // An <input type="submit|button"> carries its label in value=.
-      const hits = [...matches(/(?:title|label|text)\s*[=:]\s*\{?\s*["'](?:Submit|Click here|Tap here)["']|>\s*(?:Submit|Click here|Tap here)\s*<|<input\b(?=[^<>]*\btype\s*=\s*\{?\s*["']?(?:submit|button)\b)[^<>]*\bvalue\s*=\s*\{?\s*["'](?:Submit|Click here|Tap here)["']/i, code)].map((m) => m.index);
+      const hits = [...matches(/(?:title|label|text)\s*[=:]\s*\{?\s*["'](?:Submit|Click here|Tap here)["']|>\s*(?:Submit|Click here|Tap here)\s*<|<input\b(?=(?:[^<>]|=>)*(?<![\w-])type\s*=\s*\{?\s*["']?(?:submit|button)\b)(?:[^<>]|=>)*?(?<![\w-])value\s*=\s*\{?\s*["'](?:Submit|Click here|Tap here)["']/i, code)].map((m) => m.index);
       // Native buttons: the label only counts inside a button call, so a
       // bare Text("Submit") used as a heading or field label stays quiet.
       // Button("Submit") { save() } (Swift), Button(onClick = {}) {
