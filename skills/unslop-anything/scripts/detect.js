@@ -257,6 +257,8 @@ function isRegexStart(text, i) {
   while (j >= 0 && (text[j] === " " || text[j] === "\t")) j--;
   if (j < 0 || text[j] === "\n") return true;
   // Not after <, > or }: those are JSX closing tags and text such as {a}/{b}.
+  // count++ / 2 and count-- / 2 divide: a postfix operator ends an operand
+  if ((text[j] === "+" || text[j] === "-") && text[j - 1] === text[j]) return false;
   if ("(,=:[!&|?{;+-*%~^".includes(text[j])) return true;
   return /\b(?:return|typeof|case|do|else|in|of|void|yield|await)$/.test(text.slice(Math.max(0, j - 6), j + 1));
 }
