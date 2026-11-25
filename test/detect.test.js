@@ -537,6 +537,11 @@ test("gradient-text flags Flutter text painted with a gradient shader (issue #14
   // A solid paint is not gradient text, even with a gradient later on the line.
   assert.deepStrictEqual(lines("Text('Hi', style: TextStyle(foreground: Paint()..color = Colors.black))\n"), []);
   assert.deepStrictEqual(lines("Text('a', style: TextStyle(foreground: Paint()..color = c)); final p = Paint()..shader = LinearGradient(colors: c).createShader(r);\n"), []);
+  // The next argument is not part of the foreground paint.
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..color = c, background: Paint()..shader = LinearGradient(colors: c).createShader(r))\n"), []);
+  // Nested and multi-line calls in an earlier cascade.
+  assert.deepStrictEqual(lines("TextStyle(foreground: Paint()..color = Colors.red.withAlpha(alpha.round())..shader = LinearGradient(colors: c).createShader(r))\n"), [1]);
+  assert.deepStrictEqual(lines("TextStyle(\n  foreground: Paint()\n    ..color = Color.fromARGB(\n      255, 0, 0, 0)\n    ..shader = LinearGradient(colors: c).createShader(r),\n)\n"), [2]);
   assert.deepStrictEqual(lines("final p = Paint()..shader = ui.Gradient.linear(a, b, colors);\n"), []);
 });
 
