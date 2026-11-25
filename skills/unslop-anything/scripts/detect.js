@@ -1190,19 +1190,23 @@ const rules = [
       const hits = [];
       for (const m of matches(re, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
-        const before = code.slice(lineStart, m.index);
+        // Only the current statement counts: copy after `import x from "y";` is still copy.
+        const before = code.slice(Math.max(lineStart, code.lastIndexOf(";", m.index - 1) + 1), m.index);
         const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
         // An import line, or a package name in a module string
         // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
         if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(before)) continue;
         if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
-        // Nor is a variable, object or key of that name: `const unleash = ...`,
+        // A name inside a multi-line `import { ... }` or `export { ... }` clause.
+        if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^}]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
+        // Nor is a variable, object or key named unleash: `const unleash = ...`,
         // `unleash.isEnabled(...)`, `new Unleash(...)`, `{ unleash }`, `{ unleash: cfg }`.
-        // `Fast.Secure.Seamless.Simple.` and `Seamless(ly)` are still copy.
-        if (/^\w+$/.test(m[0])) {
+        // Only outside a string, so `"fast, seamless, simple"` is still copy.
+        const inString = (before.match(/["'`]/g) || []).length % 2 === 1;
+        if (/^unleash$/i.test(m[0]) && !inString) {
           if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
-          if (/^\(/.test(after) && (/^[a-z]/.test(m[0]) || /\bnew\s+$/.test(before))) continue;
-          if (/^[a-z]+$/.test(m[0]) && /[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)) continue;
+          if (/^\(/.test(after) && (/^u/.test(m[0]) || /\bnew\s+$/.test(before))) continue;
+          if (/^unleash$/.test(m[0]) && /[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)) continue;
         }
         hits.push(m.index);
       }

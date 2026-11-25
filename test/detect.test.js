@@ -181,6 +181,14 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   // Other buzzwords written without spaces are still copy, not property access.
   assert.deepStrictEqual(buzz("<h2>Fast.Secure.Seamless.Simple.</h2>\n", "Hero.tsx"), [1]);
   assert.deepStrictEqual(buzz('const tagline = "Seamless(ly) fast";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz('const tagline = "fast, seamless, simple";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz('const tagline = "Fast.Secure.seamless.simple.";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz('const tagline = "seamless(ly) fast";\n', "copy.ts"), [1]);
+  // Copy after an import on the same line is still copy.
+  assert.deepStrictEqual(buzz('import { useFlag } from "sdk"; const title = "Unleash your team";\n', "copy.ts"), [1]);
+  // Names inside a multi-line import clause are not copy.
+  assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);
 });
 
 test("ignore comments from before the rename still work", () => {
