@@ -556,6 +556,11 @@ test("gradient-text flags Flutter text painted with a gradient shader (issue #14
   assert.deepStrictEqual(lines(`TextStyle(foreground: Paint()${spaced} ..blendMode = b)\n`), []);
   assert.ok(Date.now() - spacedStart < 500, `took ${Date.now() - spacedStart} ms`);
   assert.deepStrictEqual(lines(`TextStyle(foreground: Paint()${spaced} ..shader = LinearGradient(colors: c).createShader(r))\n`), [1]);
+  // A long run of spaces inside a value is read once, not once per space.
+  const wide = `TextStyle(foreground: Paint()..p0 = a${" ".repeat(20000)}b..blendMode = c)\n`;
+  const wideStart = Date.now();
+  assert.deepStrictEqual(lines(wide), []);
+  assert.ok(Date.now() - wideStart < 200, `took ${Date.now() - wideStart} ms`);
 });
 
 test("0xRRGGBB colors are read alongside 0xFFRRGGBB", () => {
