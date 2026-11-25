@@ -877,6 +877,11 @@ test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue 
   assert.deepStrictEqual(lines('<div v-on:click.prevent.self="open">x</div>\n', "A.vue"), [1]);
   assert.deepStrictEqual(lines("<div on:click|preventDefault={open}>x</div>\n", "A.svelte"), [1]);
   assert.deepStrictEqual(lines('<div role="button" tabindex="0" @click.stop="open">x</div>\n', "A.vue"), []);
+  // An arrow function or a quoted > in an earlier attribute does not hide the handler.
+  assert.deepStrictEqual(lines("<div onKeyDown={(e) => handleKey(e)} onClick={open}>Open</div>\n", "A.tsx"), [1]);
+  assert.deepStrictEqual(lines("<div on:keydown={(e) => handleKey(e)} onclick={open}>Open</div>\n", "A.svelte"), [1]);
+  assert.deepStrictEqual(lines('<div title="a > b" onclick="go()">x</div>\n', "page.html"), [1]);
+  assert.deepStrictEqual(lines('<a title="a > b" href="/x" onclick="go()">x</a>\n', "page.html"), []);
   // A real button with onclick is fine.
   assert.deepStrictEqual(lines('<button onclick="openCard()">Details</button>\n', "page.html"), []);
 });

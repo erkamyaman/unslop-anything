@@ -301,9 +301,14 @@ function lineAt(starts, index) {
 // function (=>) or a comparison inside it does not end the tag early. -1 when nothing closes it.
 function tagEnd(text, from) {
   let depth = 0;
+  // a > inside a quoted attribute value (title="a > b") does not end the tag
+  let quote = null;
   for (let i = from; i < text.length; i++) {
     const c = text[i];
-    if (c === "{") depth++;
+    if (quote) {
+      if (c === quote) quote = null;
+    } else if (depth === 0 && (c === '"' || c === "'")) quote = c;
+    else if (c === "{") depth++;
     else if (c === "}" && depth > 0) depth--;
     else if (c === ">" && depth === 0) return i;
   }
@@ -1043,9 +1048,12 @@ const rules = [
     fix: "Use a <button> for actions and an <a href> for navigation. They come with focus, Enter and Space, and the right role.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<(?:div|span|li|td|img|a)\b[^<>]*?\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/, code)) {
+      // Each opening tag is read to its real end first, so an arrow function in an earlier
+      // attribute (`onKeyDown={(e) => ...}`) does not hide the click handler after it.
+      for (const m of matches(/<(?:div|span|li|td|img|a)\b/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (!/\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/.test(tag)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
         // keyboard- and screen-reader-accessible when it has both an
