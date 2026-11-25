@@ -325,6 +325,13 @@ test("transition-all flags `all` anywhere in a transition list", () => {
   assert.deepStrictEqual(scanSource(named, "a.css"), []);
 });
 
+test("Less stylesheets are scanned like CSS", () => {
+  // Issue #125: the issue's repro, saved as .less.
+  const less = ".card {\n  transition: all 0.3s;\n}\n.card:hover { transform: scale(1.05); }\n";
+  assert.deepStrictEqual(scanSource(less, "styles.less").map((f) => f.rule), ["hover-only", "transition-all", "hover-scale"]);
+  assert.deepStrictEqual(scanSource(less, "styles.scss").map((f) => f.rule), ["hover-only", "transition-all", "hover-scale"]);
+});
+
 test("vague-button catches Swift, Compose and Flutter buttons", () => {
   assert.deepStrictEqual(scanSource('Button("Submit") { save() }', "a.swift").map((f) => f.rule), ["vague-button"]);
   assert.deepStrictEqual(scanSource('Button(onClick = {}) { Text("Submit") }', "a.kt").map((f) => f.rule), ["vague-button"]);
