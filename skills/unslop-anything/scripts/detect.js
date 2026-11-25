@@ -1119,7 +1119,7 @@ const rules = [
     fix: "Say what failed in the product's words and what the user can do: retry, check the connection, contact support.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/\boops\b|something went wrong/i, code)) {
+      for (const m of matches(/\b(?:wh)?oops\b|something went wrong/i, code)) {
         // Log calls and thrown errors never reach the user, so skip a match
         // whose line starts as one: console.*, logger.*, Log.*, print,
         // debugPrint, NSLog, or `throw new Error(...)`.
