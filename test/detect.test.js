@@ -171,10 +171,16 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('export { useFlag } from "@unleash/proxy-client-react";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('const { UnleashClient } = require("unleash-client");\n', "flags.js"), []);
   assert.deepStrictEqual(buzz("const unleash = new UnleashClient({ url });\nif (unleash.isEnabled(\"x\")) start();\n", "flags.ts"), []);
+  assert.deepStrictEqual(buzz('import Unleash from "unleash-client";\nconst client = new Unleash({ url });\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('import { Unleash, useFlag } from "@unleash/proxy-client-react";\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz("const { unleash } = useApp();\nconst cfg = { unleash: { url }, other: 1 };\n", "flags.ts"), []);
   // Copy is still flagged, also on a line that names the package elsewhere.
   assert.deepStrictEqual(buzz("<h1>Unleash your creativity</h1>\n", "Hero.tsx"), [1]);
   assert.deepStrictEqual(buzz('const title = "Unleash your team";\n', "copy.ts"), [1]);
   assert.deepStrictEqual(buzz("<p>Time to unleash. Start now.</p>\n", "Cta.tsx"), [1]);
+  // Other buzzwords written without spaces are still copy, not property access.
+  assert.deepStrictEqual(buzz("<h2>Fast.Secure.Seamless.Simple.</h2>\n", "Hero.tsx"), [1]);
+  assert.deepStrictEqual(buzz('const tagline = "Seamless(ly) fast";\n', "copy.ts"), [1]);
 });
 
 test("ignore comments from before the rename still work", () => {

@@ -1191,11 +1191,19 @@ const rules = [
       for (const m of matches(re, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         const before = code.slice(lineStart, m.index);
-        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 2);
-        // A package name (`@unleash/proxy-client-react`, `unleash-client`) is not copy.
+        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
+        // An import line, or a package name in a module string
+        // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
+        if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(before)) continue;
         if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
-        // Nor is a variable or object of that name: `const unleash = ...`, `unleash.isEnabled(...)`.
-        if (/\b(?:const|let|var)\s+$/.test(before) || /^(?:\.\w|\()/.test(after)) continue;
+        // Nor is a variable, object or key of that name: `const unleash = ...`,
+        // `unleash.isEnabled(...)`, `new Unleash(...)`, `{ unleash }`, `{ unleash: cfg }`.
+        // `Fast.Secure.Seamless.Simple.` and `Seamless(ly)` are still copy.
+        if (/^\w+$/.test(m[0])) {
+          if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
+          if (/^\(/.test(after) && (/^[a-z]/.test(m[0]) || /\bnew\s+$/.test(before))) continue;
+          if (/^[a-z]+$/.test(m[0]) && /[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)) continue;
+        }
         hits.push(m.index);
       }
       return hits;
