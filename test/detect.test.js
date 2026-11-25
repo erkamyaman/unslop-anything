@@ -143,6 +143,26 @@ test("oops-error flags Whoops but not loops or hoops", () => {
   assert.deepStrictEqual(scanSource('const a = "whoopsie";\n', "a.ts"), []);
 });
 
+test("oops-error flags visible copy after a log call on the same line", () => {
+  // CodeRabbit on #131: the old guard skipped every match after a log call
+  // earlier on the line, so visible copy after the call went unflagged.
+  assert.deepStrictEqual(
+    scanSource('console.error(err); return <p>Whoops!</p>;\n', "a.tsx").map((f) => f.line),
+    [1],
+  );
+  assert.deepStrictEqual(
+    scanSource('console.error("Something went wrong"); return <p>Oops!</p>;\n', "a.tsx").map((f) => f.line),
+    [1],
+  );
+  assert.deepStrictEqual(
+    scanSource('throw new Error("x"); return <p>Oops</p>;\n', "a.tsx").map((f) => f.line),
+    [1],
+  );
+  // A match still inside the call stays quiet, even with a paren in the message.
+  assert.deepStrictEqual(scanSource('console.error("a)b", "Oops");\n', "a.ts"), []);
+  assert.deepStrictEqual(scanSource('console.log("a"); console.error("Oops");\n', "a.ts"), []);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);

@@ -337,6 +337,51 @@ function isTextBrush(code, index) {
   return false;
 }
 
+// True when the match at `index` sits inside a log call (console.*,
+// logger.*, Log.*, print, debugPrint, NSLog) or a `throw new ...(...)`
+// that is still open on the same line. Log calls and thrown errors never
+// reach the user, so their messages stay quiet — but a call that already
+// closed on the line does not hide visible copy after it:
+// `console.error(err); return <p>Oops!</p>;` still flags. Parens inside
+// string literals do not close the call, so a message such as
+// `console.error("a)b", "Oops")` stays quiet.
+function insideLogCall(code, index) {
+  const lineStart = code.lastIndexOf("\n", index) + 1;
+  const before = code.slice(lineStart, index);
+  const calls = /\b(?:console|logger|log|Log)\.\w+\s*\(|\b(?:print|debugPrint|NSLog)\s*\(|throw\s+new\s+\w+\s*\(/g;
+  let m;
+  while ((m = calls.exec(before))) {
+    const open = m.index + m[0].lastIndexOf("(");
+    if (callStillOpen(before, open)) return true;
+  }
+  return false;
+}
+
+// True when the `(` at `open` has no matching `)` before the end of `text`:
+// scan forward tracking paren depth, skipping string literals so a paren
+// inside a message neither closes nor opens the call.
+function callStillOpen(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (c === "\"" || c === "'" || c === "`") {
+      const quote = c;
+      i++;
+      while (i < text.length && text[i] !== quote) {
+        if (text[i] === "\\") i++;
+        i++;
+      }
+      continue;
+    }
+    if (c === "(") depth++;
+    else if (c === ")") {
+      depth--;
+      if (depth === 0) return false;
+    }
+  }
+  return depth > 0;
+}
+
 // Index just past the bracket that closes the one at `open`.
 function closeOf(text, open) {
   const pairs = { "(": ")", "{": "}", "[": "]" };
@@ -1121,10 +1166,10 @@ const rules = [
       const hits = [];
       for (const m of matches(/\b(?:wh)?oops\b|something went wrong/i, code)) {
         // Log calls and thrown errors never reach the user, so skip a match
-        // whose line starts as one: console.*, logger.*, Log.*, print,
-        // debugPrint, NSLog, or `throw new Error(...)`.
-        const lineStart = code.lastIndexOf("\n", m.index) + 1;
-        if (/\b(?:console|logger|log|Log)\.\w+\s*\(|\b(?:print|debugPrint|NSLog)\s*\(|throw\s+new\b/.test(code.slice(lineStart, m.index))) continue;
+        // inside one: console.*, logger.*, Log.*, print, debugPrint, NSLog,
+        // or `throw new Error(...)`. Only the call itself hides the match —
+        // visible copy after the call closed on the same line still flags.
+        if (insideLogCall(code, m.index)) continue;
         hits.push(m.index);
       }
       return hits;
