@@ -189,6 +189,9 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   // An apostrophe inside a string does not end it; a template literal is not an import.
   assert.deepStrictEqual(buzz('const label = "Don\'t stop", enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('const example = `\nimport {\n`;\nconst title = "Seamless setup";\n', "copy.ts"), [4]);
+  // A semicolon inside a string does not split the statement.
+  assert.deepStrictEqual(buzz('const title = "Try; unleash(your potential)";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz('const label = "Wait; go", enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
   // Names inside a multi-line import clause are not copy.
   assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);

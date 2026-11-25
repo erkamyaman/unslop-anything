@@ -1191,8 +1191,20 @@ const rules = [
       for (const m of matches(re, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         // Only the current statement counts: copy after `import x from "y";` is still copy.
+        // One pass over the line: the last `;` outside a string ends the previous statement, and
+        // the quote still open at the match says whether the match sits inside a string.
         const line = code.slice(lineStart, m.index);
-        const before = line.slice(line.lastIndexOf(";") + 1);
+        let quote = null;
+        let statement = 0;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (quote) {
+            if (c === "\\") i++;
+            else if (c === quote) quote = null;
+          } else if (c === '"' || c === "'" || c === "`") quote = c;
+          else if (c === ";") statement = i + 1;
+        }
+        const before = line.slice(statement);
         const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
         // An import line, or a package name in a module string
         // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
@@ -1203,14 +1215,6 @@ const rules = [
         // Nor is a variable, object or key named unleash: `const unleash = ...`,
         // `unleash.isEnabled(...)`, `new Unleash(...)`, `{ unleash }`, `{ unleash: cfg }`.
         // Only outside a string, so `"fast, seamless, simple"` is still copy.
-        let quote = null;
-        for (let i = 0; i < before.length; i++) {
-          const c = before[i];
-          if (quote) {
-            if (c === "\\") i++;
-            else if (c === quote) quote = null;
-          } else if (c === '"' || c === "'" || c === "`") quote = c;
-        }
         const inString = quote !== null;
         if (/^unleash$/i.test(m[0]) && !inString) {
           if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
