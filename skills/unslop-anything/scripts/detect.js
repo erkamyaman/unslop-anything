@@ -1228,7 +1228,7 @@ const rules = [
           .replace(/(?<![\w-])(?!type\b|value\b)[\w:@.-]+\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
         if (
           /(?<![\w-])type\s*=\s*\{?\s*(["']?)(?:submit|button)\1(?![\w-])/i.test(tag) &&
-          /(?<![\w-])value\s*=\s*\{?\s*(["']?)(?:Submit|Click here|Tap here)\1(?![\w-])/i.test(tag)
+          /(?<![\w-])value\s*=\s*(?:\{\s*(["'`])(?:Submit|Click here|Tap here)\1\s*\}|(["'])(?:Submit|Click here|Tap here)\2|Submit(?=[\s/>]|$))/i.test(tag)
         ) {
           hits.push(m.index);
         }

@@ -402,6 +402,10 @@ test("vague-button reads the value of a submit or button input (issue #145)", ()
   assert.deepStrictEqual(lines('<input type="button-group" value="Submit">\n'), []);
   assert.deepStrictEqual(lines('<input type="text" title="type=submit" value="Submit">\n'), []);
   assert.deepStrictEqual(lines("<input type=submit value=Submit>\n"), [1]);
+  assert.deepStrictEqual(lines('<input type="submit" value={"Submit"} />\n', "Form.tsx"), [1]);
+  // Only the whole value counts.
+  assert.deepStrictEqual(lines('<input type="submit" value={"Submit" + " order"} />\n', "Form.tsx"), []);
+  assert.deepStrictEqual(lines("<input type=submit value=Submit&nbsp;order>\n"), []);
 });
 
 test("transition-all stops at the quote that ends a CSS-in-JS value", () => {
