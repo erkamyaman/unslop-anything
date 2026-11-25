@@ -1191,18 +1191,27 @@ const rules = [
       for (const m of matches(re, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         // Only the current statement counts: copy after `import x from "y";` is still copy.
-        const before = code.slice(Math.max(lineStart, code.lastIndexOf(";", m.index - 1) + 1), m.index);
+        const line = code.slice(lineStart, m.index);
+        const before = line.slice(line.lastIndexOf(";") + 1);
         const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
         // An import line, or a package name in a module string
         // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
         if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(before)) continue;
         if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
         // A name inside a multi-line `import { ... }` or `export { ... }` clause.
-        if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^}]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
+        if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^};`]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
         // Nor is a variable, object or key named unleash: `const unleash = ...`,
         // `unleash.isEnabled(...)`, `new Unleash(...)`, `{ unleash }`, `{ unleash: cfg }`.
         // Only outside a string, so `"fast, seamless, simple"` is still copy.
-        const inString = (before.match(/["'`]/g) || []).length % 2 === 1;
+        let quote = null;
+        for (let i = 0; i < before.length; i++) {
+          const c = before[i];
+          if (quote) {
+            if (c === "\\") i++;
+            else if (c === quote) quote = null;
+          } else if (c === '"' || c === "'" || c === "`") quote = c;
+        }
+        const inString = quote !== null;
         if (/^unleash$/i.test(m[0]) && !inString) {
           if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
           if (/^\(/.test(after) && (/^u/.test(m[0]) || /\bnew\s+$/.test(before))) continue;

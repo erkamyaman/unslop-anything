@@ -186,6 +186,9 @@ test("buzzword-copy skips package names and identifiers, not copy", () => {
   assert.deepStrictEqual(buzz('const tagline = "seamless(ly) fast";\n', "copy.ts"), [1]);
   // Copy after an import on the same line is still copy.
   assert.deepStrictEqual(buzz('import { useFlag } from "sdk"; const title = "Unleash your team";\n', "copy.ts"), [1]);
+  // An apostrophe inside a string does not end it; a template literal is not an import.
+  assert.deepStrictEqual(buzz('const label = "Don\'t stop", enabled = unleash.isEnabled("flag");\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('const example = `\nimport {\n`;\nconst title = "Seamless setup";\n', "copy.ts"), [4]);
   // Names inside a multi-line import clause are not copy.
   assert.deepStrictEqual(buzz('import {\n  Unleash,\n  useFlag,\n} from "@unleash/proxy-client-react";\n', "flags.ts"), []);
   assert.deepStrictEqual(buzz('import type {\n  Unleash,\n} from "unleash-client";\n<h1>Unleash your team</h1>\n', "Hero.tsx"), [4]);
