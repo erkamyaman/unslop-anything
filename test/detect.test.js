@@ -381,6 +381,19 @@ test("vague-button catches Swift, Compose and Flutter buttons", () => {
   assert.deepStrictEqual(scanSource('Text("Save address")', "a.kt"), []);
 });
 
+test("vague-button reads the value of a submit or button input (issue #145)", () => {
+  const lines = (src, file = "form.html") => scanSource(src, file).filter((f) => f.rule === "vague-button").map((f) => f.line);
+  assert.deepStrictEqual(lines('<form>\n  <input type="submit" value="Submit">\n</form>\n'), [2]);
+  assert.deepStrictEqual(lines('<input value="Click here" type="button" />\n'), [1]);
+  assert.deepStrictEqual(lines("<input type=submit value='Tap here'>\n"), [1]);
+  assert.deepStrictEqual(lines('<input type="submit" value="Submit" />\n', "Form.tsx"), [1]);
+  // Other inputs and options keep their value; a specific label is fine.
+  assert.deepStrictEqual(lines('<input type="text" value="Submit">\n'), []);
+  assert.deepStrictEqual(lines('<input value="Submit">\n'), []);
+  assert.deepStrictEqual(lines('<select><option value="Submit">Send it</option></select>\n'), []);
+  assert.deepStrictEqual(lines('<input type="submit" value="Save address">\n'), []);
+});
+
 test("transition-all stops at the quote that ends a CSS-in-JS value", () => {
   // `all` in a later property of a style object is not part of the transition.
   const pointerEvents = 'const s = { transition: "opacity .2s", pointerEvents: "all" };\n';
