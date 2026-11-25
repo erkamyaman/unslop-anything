@@ -865,6 +865,8 @@ test("clickable-div requires both an interactive role and tabIndex on div/span/l
 test("tagEnd skips strings inside an attribute expression", () => {
   const imgs = (code) => scanSource(code, "A.tsx").filter((f) => f.rule === "img-no-alt");
   assert.deepStrictEqual(imgs('<img onLoad={() => loaded("}")} alt="Photo" src={src} />\n').length, 0);
+  // nor does a quote inside a regex literal in an expression
+  assert.deepStrictEqual(imgs('<img onLoad={() => /"/.test(value)} alt="Photo" src={src} />\n').length, 0);
 });
 
 test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue #141)", () => {
@@ -889,6 +891,9 @@ test("clickable-div catches lowercase onclick in Svelte 5 and plain HTML (issue 
   assert.deepStrictEqual(lines('<a title="a > b" href="/x" onclick="go()">x</a>\n', "page.html"), []);
   // A handler of a nested element inside an attribute belongs to that element.
   assert.deepStrictEqual(lines('<div render={<span role="button" tabIndex={0} onClick={x}>Open</span>} />\n', "A.tsx"), []);
+  assert.deepStrictEqual(lines('<div render={\n  <span onClick={x}>Open</span>\n} />\n', "A.tsx"), [2]);
+  // A brace inside a quoted value is text, not an expression.
+  assert.deepStrictEqual(lines('<div title="{" onClick={x}>Open</div>\n', "A.tsx"), [1]);
   // A real button with onclick is fine.
   assert.deepStrictEqual(lines('<button onclick="openCard()">Details</button>\n', "page.html"), []);
 });

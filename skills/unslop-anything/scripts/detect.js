@@ -300,21 +300,37 @@ function lineAt(starts, index) {
 // Index of the ">" that closes the tag, skipping any "{...}" attribute expression so an arrow
 // function (=>) or a comparison inside it does not end the tag early. -1 when nothing closes it.
 function tagEnd(text, from) {
+  const end = walkTag(text, from);
+  return end === -1 ? text.indexOf(">", from) : end;
+}
+
+// Walks an opening tag from `from` and returns the index of its closing ">", or -1. A > inside a
+// quoted attribute value (title="a > b") does not end the tag, and a brace inside a string or a
+// regex literal in an expression (onLoad={() => f("}")}) does not close it. `own(i)` is called
+// for each character outside {...} expressions: the element's own attributes.
+function walkTag(text, from, own) {
   let depth = 0;
-  // a > inside a quoted attribute value (title="a > b") does not end the tag, and a brace
-  // inside a string in an expression (onLoad={() => f("}")}) does not close it
   let quote = null;
   for (let i = from; i < text.length; i++) {
     const c = text[i];
+    if (own && depth === 0) own(i);
     if (quote) {
       if (c === "\\" && depth > 0) i++;
       else if (c === quote) quote = null;
     } else if (c === '"' || c === "'" || (depth > 0 && c === "`")) quote = c;
+    else if (c === "/" && depth > 0 && regexInExpression(text, i)) i = skipRegex(text, i) - 1;
     else if (c === "{") depth++;
     else if (c === "}" && depth > 0) depth--;
     else if (c === ">" && depth === 0) return i;
   }
-  return text.indexOf(">", from);
+  return -1;
+}
+
+// isRegexStart, plus the slash right after an arrow (() => /x/.test(v)).
+function regexInExpression(text, i) {
+  let j = i - 1;
+  while (j >= 0 && (text[j] === " " || text[j] === "\t")) j--;
+  return (text[j] === ">" && text[j - 1] === "=") || isRegexStart(text, i);
 }
 
 function* matches(re, text) {
@@ -1056,13 +1072,8 @@ const rules = [
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
-        let top = "";
-        let depth = 0;
-        for (const c of tag) {
-          if (c === "}" && depth > 0) depth--;
-          if (depth === 0) top += c;
-          if (c === "{") depth++;
-        }
+        let top = m[0];
+        walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
         if (!/\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/.test(top)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
