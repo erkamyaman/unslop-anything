@@ -257,8 +257,6 @@ function isRegexStart(text, i) {
   while (j >= 0 && (text[j] === " " || text[j] === "\t")) j--;
   if (j < 0 || text[j] === "\n") return true;
   // Not after <, > or }: those are JSX closing tags and text such as {a}/{b}.
-  // count++ / 2 and count-- / 2 divide: a postfix operator ends an operand
-  if ((text[j] === "+" || text[j] === "-") && text[j - 1] === text[j]) return false;
   if ("(,=:[!&|?{;+-*%~^".includes(text[j])) return true;
   return /\b(?:return|typeof|case|do|else|in|of|void|yield|await)$/.test(text.slice(Math.max(0, j - 6), j + 1));
 }
@@ -1187,50 +1185,23 @@ const rules = [
     stacks: null,
     message: "Marketing filler in the interface.",
     fix: "Say what the screen does in plain words, or delete the line.",
-    find({ code, stack }) {
+    find({ code }) {
       const re = /unlock (?:your|the) (?:full )?potential|\bseamless(?:ly)?\b|\beffortless(?:ly)?\b|\bsupercharg\w*|all in one place|\bnext[- ]level\b|\belevate your\b|\bgame[- ]?changer\b|\brevolutioni[sz]\w*|\bunleash\b|\bempower(?:s|ing)? you/i;
       const hits = [];
-      // Only the current statement counts: copy after `import x from "y";` is still copy.
-      // One pass over each line, carried from match to match: the last `;` outside a string
-      // ends the previous statement, and the quote still open at a match says whether the
-      // match sits inside a string. A newline starts over.
-      let pos = 0;
-      let quote = null;
-      let statement = 0;
       for (const m of matches(re, code)) {
-        for (; pos < m.index; pos++) {
-          const c = code[pos];
-          if (c === "\n") {
-            quote = null;
-            statement = pos + 1;
-          } else if (quote) {
-            if (c === "\\") pos++;
-            else if (c === quote) quote = null;
-          } else if (c === '"' || c === "'" || c === "`") quote = c;
-          else if (c === ";") statement = pos + 1;
-          // a regex literal such as /"/ holds no string delimiters
-          else if (c === "/" && stack === "js" && isRegexStart(code, pos)) pos = skipRegex(code, pos) - 1;
-        }
-        // The checks below look at most 2000 characters back, so a long line costs the same per match.
-        const before = code.slice(Math.max(statement, m.index - 2000), m.index);
-        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 20);
-        // An import line, or a package name in a module string
-        // (`@unleash/proxy-client-react`, `require("unleash-client")`), is not copy.
-        if (/^\s*(?:import\b|export\b[^"'`\n]*\bfrom\s*["'`])/.test(code.slice(statement, Math.min(m.index, statement + 400)))) continue;
+        // The line up to the match, at most 300 characters back.
+        const back = code.slice(Math.max(0, m.index - 300), m.index);
+        const before = back.slice(back.lastIndexOf("\n") + 1);
+        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 3);
+        // A package name in a module string (`from "@unleash/..."`, `require("unleash-client")`),
+        // a name on an import line, or a name inside a multi-line `import { ... }` clause is not copy.
         if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
-        // A name inside a multi-line `import { ... }` or `export { ... }` clause.
+        if (/^\s*import\b[^"'`;]*$/.test(before)) continue;
         if (/(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:\w+\s*,\s*)?\{[^};`]*$/.test(code.slice(Math.max(0, m.index - 2000), m.index))) continue;
-        // Nor is a variable, object or key named unleash: `const unleash = ...`,
-        // `unleash.isEnabled(...)`, `new Unleash(...)`, `{ unleash }`, `{ unleash: cfg }`.
-        // Only outside a string, so `"fast, seamless, simple"` is still copy.
-        const inString = quote !== null;
-        if (/^unleash$/i.test(m[0]) && !inString) {
-          if (/\b(?:const|let|var)\s+$/.test(before) || /^\.[a-z_$]/.test(after)) continue;
-          // `unleash.Client`, `unleash .isEnabled()`, `= unleash;`, `return unleash;`
-          if (/^unleash$/.test(m[0]) && (/^(?:\.[A-Za-z_$]|\s+\.[A-Za-z_$])/.test(after) || (/(?:[=(]|\breturn)\s*$/.test(before) && /^\s*[;,)]/.test(after)))) continue;
-          if (/^\(/.test(after) && (/^u/.test(m[0]) || /\bnew\s+$/.test(before))) continue;
-          if (/^unleash$/.test(m[0]) && /[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)) continue;
-        }
+        // Nor is unleash used as code: `const unleash = ...`, `new Unleash(...)`,
+        // `unleash.isEnabled(...)`, `{ unleash }`, `{ unleash: cfg }`.
+        if (/^unleash$/i.test(m[0]) && /\b(?:const|let|var|new)\s+$/.test(before)) continue;
+        if (m[0] === "unleash" && (/^\.[A-Za-z_$]/.test(after) || (/[{,]\s*$/.test(before) && /^\s*[:,}]/.test(after)))) continue;
         hits.push(m.index);
       }
       return hits;
