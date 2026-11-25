@@ -163,6 +163,20 @@ test("oops-error flags visible copy after a log call on the same line", () => {
   assert.deepStrictEqual(scanSource('console.log("a"); console.error("Oops");\n', "a.ts"), []);
 });
 
+test("buzzword-copy skips package names and identifiers, not copy", () => {
+  // Issue #140: the Unleash feature-flag SDK is a package, not marketing filler.
+  const buzz = (src, file) => scanSource(src, file).filter((f) => f.rule === "buzzword-copy").map((f) => f.line);
+  const checkout = 'import { useFlag } from "@unleash/proxy-client-react";\n\nexport function Checkout() {\n  const enabled = useFlag("new-checkout");\n  return <p>{enabled ? "New" : "Old"}</p>;\n}\n';
+  assert.deepStrictEqual(buzz(checkout, "Checkout.tsx"), []);
+  assert.deepStrictEqual(buzz('export { useFlag } from "@unleash/proxy-client-react";\n', "flags.ts"), []);
+  assert.deepStrictEqual(buzz('const { UnleashClient } = require("unleash-client");\n', "flags.js"), []);
+  assert.deepStrictEqual(buzz("const unleash = new UnleashClient({ url });\nif (unleash.isEnabled(\"x\")) start();\n", "flags.ts"), []);
+  // Copy is still flagged, also on a line that names the package elsewhere.
+  assert.deepStrictEqual(buzz("<h1>Unleash your creativity</h1>\n", "Hero.tsx"), [1]);
+  assert.deepStrictEqual(buzz('const title = "Unleash your team";\n', "copy.ts"), [1]);
+  assert.deepStrictEqual(buzz("<p>Time to unleash. Start now.</p>\n", "Cta.tsx"), [1]);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);

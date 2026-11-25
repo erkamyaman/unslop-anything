@@ -1187,7 +1187,18 @@ const rules = [
     fix: "Say what the screen does in plain words, or delete the line.",
     find({ code }) {
       const re = /unlock (?:your|the) (?:full )?potential|\bseamless(?:ly)?\b|\beffortless(?:ly)?\b|\bsupercharg\w*|all in one place|\bnext[- ]level\b|\belevate your\b|\bgame[- ]?changer\b|\brevolutioni[sz]\w*|\bunleash\b|\bempower(?:s|ing)? you/i;
-      return [...matches(re, code)].map((m) => m.index);
+      const hits = [];
+      for (const m of matches(re, code)) {
+        const lineStart = code.lastIndexOf("\n", m.index) + 1;
+        const before = code.slice(lineStart, m.index);
+        const after = code.slice(m.index + m[0].length, m.index + m[0].length + 2);
+        // A package name (`@unleash/proxy-client-react`, `unleash-client`) is not copy.
+        if (/(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*["'`][^"'`]*$/.test(before)) continue;
+        // Nor is a variable or object of that name: `const unleash = ...`, `unleash.isEnabled(...)`.
+        if (/\b(?:const|let|var)\s+$/.test(before) || /^(?:\.\w|\()/.test(after)) continue;
+        hits.push(m.index);
+      }
+      return hits;
     },
   },
   {
