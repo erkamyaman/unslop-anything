@@ -556,6 +556,46 @@ test("project config is found above the scan target", () => {
   }
 });
 
+function detectWithConfig(config) {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-"));
+  const target = path.join(root, "src");
+  const file = path.join(target, ".unslop-anything", "config.json");
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, config);
+    // A valid ancestor config must not mask errors in the nearer config.
+    fs.mkdirSync(path.join(root, ".unslop-anything"));
+    fs.writeFileSync(path.join(root, ".unslop-anything", "config.json"), "{}");
+    fs.writeFileSync(path.join(target, "styles.css"), ".card { transition: all 0.3s; }\n");
+    const run = spawnSync(process.execPath,
+      [path.join(__dirname, "..", "bin", "install.js"), "detect", "--json", target],
+      { cwd: root, encoding: "utf8" });
+    assert.ifError(run.error);
+    return { ...run, file };
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test("project config syntax errors stop the detector", () => {
+  const run = detectWithConfig('{ "ignoreRules": ["transition-all"], }');
+  assert.strictEqual(run.status, 1);
+  assert.ok(run.stderr.includes(run.file));
+  assert.match(run.stderr, /Could not parse config/);
+  assert.strictEqual(run.stdout, "");
+});
+
+test("project config rejects unknown rule IDs", () => {
+  const run = detectWithConfig('{ "ignoreRules": ["transition-al"] }');
+  assert.strictEqual(run.status, 1);
+  assert.ok(run.stderr.includes(run.file));
+  assert.match(run.stderr, /Unknown rule: transition-al\. See --list-rules\./);
+  assert.strictEqual(run.stdout, "");
+});
+
 test("a config from before the rename is still read", () => {
   const fs = require("fs");
   const os = require("os");

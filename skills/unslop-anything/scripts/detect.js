@@ -1209,6 +1209,11 @@ const rules = [
 
 // ---------- scanning ----------
 
+function unknownRuleIds(ids) {
+  const known = new Set(rules.map((r) => r.id));
+  return ids.filter((id) => !known.has(id));
+}
+
 function loadConfig(root) {
   // The nearest project config above the scan target wins; the current
   // directory's config is the last fallback.
@@ -1219,12 +1224,25 @@ function loadConfig(root) {
   }
   candidates.push(path.join(process.cwd(), ".unslop-anything", "config.json"), path.join(process.cwd(), ".unslopovich", "config.json"));
   for (const file of candidates) {
+    let source;
     try {
-      const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-      return { ignoreRules: raw.ignoreRules || [], ignorePaths: raw.ignorePaths || [] };
-    } catch {
-      // No config, or unreadable: use defaults.
+      source = fs.readFileSync(file, "utf8");
+    } catch (err) {
+      if (err.code === "ENOENT") continue;
+      throw new Error(`Could not read config ${file}: ${err.message}`);
     }
+    let raw;
+    try {
+      raw = JSON.parse(source);
+    } catch (err) {
+      throw new Error(`Could not parse config ${file}: ${err.message}`);
+    }
+    const ignoreRules = raw.ignoreRules || [];
+    const unknown = unknownRuleIds(ignoreRules);
+    if (unknown.length) {
+      throw new Error(`Config ${file}: Unknown rule: ${unknown.join(", ")}. See --list-rules.`);
+    }
+    return { ignoreRules, ignorePaths: raw.ignorePaths || [] };
   }
   return { ignoreRules: [], ignorePaths: [] };
 }
@@ -1484,8 +1502,7 @@ function main(argv) {
       return 1;
     }
   }
-  const known = new Set(rules.map((r) => r.id));
-  const unknown = ignoreRules.filter((r) => !known.has(r));
+  const unknown = unknownRuleIds(ignoreRules);
   if (unknown.length) {
     console.error(`Unknown rule: ${unknown.join(", ")}. See --list-rules.`);
     return 1;
