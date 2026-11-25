@@ -153,7 +153,7 @@ On the web it adds clickable divs, removed focus rings, disabled zoom, images wi
 
 It reads the nearest `package.json` to tell a phone app from a website, so hover is a problem in your Expo app and fine on your Next.js site. `--platform web`, `--platform mobile`, or `--platform universal` settles it when it guesses wrong. Use `universal` when the project ships to both phone and web (React Native Web, Expo web). Phone-only rules, such as hover-only, are skipped.
 
-Exit code `2` means findings, so it can gate a pull request. `--fail-on critical|noticeable|minor` (default `minor`) raises the bar: findings below the threshold are still printed, but only findings at or above it fail the scan, so `--fail-on critical` lets a noisy codebase through until the worst patterns are gone. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML, `/* unslop-anything-ignore <rule-id> */` in CSS), or a whole rule in `.unslop-anything/config.json`:
+Exit code `2` means findings, so it can gate a pull request. `--fail-on critical|noticeable|minor` (default `minor`) raises the bar: findings below the threshold are still printed, but only findings at or above it fail the scan, so start a CI gate at `--fail-on noticeable` to report minor findings without failing on them. No detector rule is currently rated `critical`; `--fail-on critical` still reports findings but does not fail the scan because of them. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML, `/* unslop-anything-ignore <rule-id> */` in CSS), or a whole rule in `.unslop-anything/config.json`:
 
 ```json
 { "ignoreRules": ["status-dot"], "ignorePaths": ["src/legacy/"] }
