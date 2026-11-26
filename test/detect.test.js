@@ -1868,6 +1868,24 @@ test("glow-shadow checks each box-shadow layer independently so a neutral layer 
   for (const [src, file] of quiet) assert.deepStrictEqual(rulesFor(src, file), [], src);
 });
 
+test("glow-shadow flags colored text-shadow, filter drop-shadow() and React Native textShadowColor, not neutral ones", () => {
+  const glowLines = (src, file = "a.css") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "glow-shadow").map((f) => f.line);
+  // Issue #199: a colored drop-shadow() in filter, also after another filter function.
+  assert.deepStrictEqual(glowLines(".logo {\n  filter: drop-shadow(0 0 20px #7c3aed);\n}\n"), [2]);
+  assert.deepStrictEqual(glowLines(".logo { filter: brightness(1.1) drop-shadow(0 0 12px rgb(124 58 237 / 0.6)); }\n"), [1]);
+  assert.deepStrictEqual(glowLines(".logo { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }\n"), []);
+  // Issue #200: a colored text-shadow, also when only one layer is colored.
+  assert.deepStrictEqual(glowLines(".title {\n  text-shadow: 0 0 20px #7c3aed;\n}\n"), [2]);
+  assert.deepStrictEqual(glowLines(".title { text-shadow: 0 1px 2px #000, 0 0 16px #7c3aed; }\n"), [1]);
+  assert.deepStrictEqual(glowLines(".title { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }\n"), []);
+  // Issue #201: React Native textShadowColor, next to the existing shadowColor case.
+  const rn = 'import { StyleSheet } from "react-native";\n\nconst styles = StyleSheet.create({\n  title: { textShadowColor: "#7C3AED", textShadowRadius: 12 },\n});\n';
+  assert.deepStrictEqual(glowLines(rn, "Title.tsx"), [4]);
+  assert.deepStrictEqual(glowLines('const s = { textShadowColor: "rgba(0, 0, 0, 0.3)" };\n', "a.tsx"), []);
+  assert.deepStrictEqual(glowLines('const s = { textShadowColor: "#000" };\n', "a.tsx"), []);
+  assert.deepStrictEqual(glowLines('const s = { shadowColor: "#7C3AED", shadowRadius: 12 };\n', "a.tsx"), [1]);
+});
+
 test("slop-gradient reads UIKit system colors like .systemPurple and .systemPink", () => {
   const rulesFor = (src) => scanSource(src, "Hero.swift").map((f) => f.rule).filter((r) => r === "slop-gradient");
   const gradient = (stops) => `LinearGradient(colors: [${stops}], startPoint: .leading, endPoint: .trailing)\n`;

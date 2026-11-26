@@ -923,7 +923,9 @@ const rules = [
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
     find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
+      // text-shadow is layered like box-shadow (#200); textShadowColor is React
+      // Native's text glow (#201); a filter drop-shadow() is one shadow (#199).
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)/, code)) {
         const raw = m.slice(1).find(Boolean) || "";
         const layers = m[5] || m[7] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
         if (layers.some((value) => isGlowValue(value, stack))) hits.push(m.index);
