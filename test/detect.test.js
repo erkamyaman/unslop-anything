@@ -1537,6 +1537,19 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
 
+test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () => {
+  const rulesFor = (src) => scanSource(src, "a.html").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor('<div class="card" (click)="open()">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<span (click) = "open()">x</span>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div class="card" x-on:click="open = true">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div x-on:click.prevent="open = true">x</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" (click)="open()">Details</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" x-on:click="open = true">x</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<a href="/x" (click)="track()">x</a>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button (click)="open()">x</button>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button x-on:click="open = true">x</button>\n'), []);
+});
+
 test("template-theme flags create-vite's #646cff and #535bf2", () => {
   const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
   assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
