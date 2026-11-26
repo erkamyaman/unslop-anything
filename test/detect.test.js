@@ -566,6 +566,14 @@ test("slop-gradient reads Tailwind arbitrary hex stops (issue #143)", () => {
   assert.deepStrictEqual(lines('<div class="bg-[#7c3aed] text-white">Hello</div>\n', "Hero.html"), []);
 });
 
+test("slop-gradient reads CSS named colors in the slop band (issue #163)", () => {
+  const rulesFor = (src) => scanSource(src, "a.css").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  for (const name of ["rebeccapurple", "mediumpurple", "blueviolet", "darkviolet", "darkorchid", "mediumorchid", "hotpink", "deeppink", "mediumvioletred", "RebeccaPurple"]) {
+    assert.deepStrictEqual(rulesFor(`.a { background: linear-gradient(${name}, white); }\n`), ["slop-gradient"], name);
+  }
+  assert.deepStrictEqual(rulesFor(".a { background: linear-gradient(skyblue, seagreen); }\n"), []);
+});
+
 test("slop-gradient reads only the gradient's own colors (issue #67)", () => {
   const gradientLines = (src, file) =>
     scanSource(src, file).filter((f) => f.rule === "slop-gradient").map((f) => f.line);
@@ -1535,6 +1543,47 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   // menu_book is a different icon.
   assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
+});
+
+test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () => {
+  const rulesFor = (src) => scanSource(src, "a.html").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor('<div class="card" (click)="open()">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<span (click) = "open()">x</span>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div class="card" x-on:click="open = true">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div x-on:click.prevent="open = true">x</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" (click)="open()">Details</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" x-on:click="open = true">x</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<a href="/x" (click)="track()">x</a>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button (click)="open()">x</button>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button x-on:click="open = true">x</button>\n'), []);
+});
+
+test("template-theme flags create-vite's #646cff and #535bf2", () => {
+  const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
+  assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a:hover { color: #535BF2; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646CFF; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646cf0; }\n"), []);
+  assert.deepStrictEqual(rulesFor("a { color: #646cffaa; }\n"), []);
+});
+
+test("slop-gradient reads rgb() and hsl() stops", () => {
+  const rulesFor = (src) => scanSource(src, "a.css").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const flagged = [
+    ".a { background: linear-gradient(rgb(124, 58, 237), rgb(219, 39, 119)); }\n",
+    ".a { background: linear-gradient(to right, rgba(124, 58, 237, 0.8), #0ea5e9); }\n",
+    ".a { background: linear-gradient(rgb(124 58 237 / 50%), white); }\n",
+    ".a { background: linear-gradient(rgb(48.6% 22.7% 92.9%), white); }\n",
+    ".a { background: linear-gradient(hsl(262, 83%, 58%), white); }\n",
+    ".a { background: radial-gradient(hsla(262deg 83% 58% / 0.5), white); }\n",
+  ];
+  for (const src of flagged) assert.deepStrictEqual(rulesFor(src), ["slop-gradient"], src);
+  const quiet = [
+    ".a { background: linear-gradient(rgb(14, 165, 233), rgb(34, 197, 94)); }\n",
+    ".a { background: linear-gradient(hsl(199 89% 48%), hsl(142 71% 45%)); }\n",
+    ".a { background: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255)); }\n",
+  ];
+  for (const src of quiet) assert.deepStrictEqual(rulesFor(src), [], src);
 });
 
 test("slop-gradient reads Flutter Color.fromARGB and Color.fromRGBO stops (issue #161)", () => {
