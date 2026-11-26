@@ -923,7 +923,9 @@ const rules = [
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
     find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
+      // text-shadow is layered like box-shadow (#200); textShadowColor is React
+      // Native's text glow (#201); a filter drop-shadow() is one shadow (#199).
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)/, code)) {
         const raw = m.slice(1).find(Boolean) || "";
         const layers = m[5] || m[7] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
         if (layers.some((value) => isGlowValue(value, stack))) hits.push(m.index);
@@ -987,7 +989,8 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       if (stack === "js" || stack === "web") {
-        for (const m of matches(/<(Card|ion-card)(?=[\s/>])/, code)) {
+        // Vuetify's v-card and Angular Material's mat-card nest like ion-card (#202).
+        for (const m of matches(/<(Card|ion-card|v-card|mat-card)(?=[\s/>])/, code)) {
           const end = tagEnd(code, m.index + m[0].length);
           if (end === -1) continue;
           if (/\/\s*$/.test(code.slice(m.index + m[0].length, end))) continue;
@@ -1040,8 +1043,8 @@ const rules = [
       // Check the complete string literal so a quoted symbol is only flagged
       // when the literal is exactly that symbol; substrings and apostrophes
       // inside longer text stay quiet.
-      const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?|[a-z0-9-]+:sparkles?|i-[a-z0-9-]+-sparkles?)$/;
-      const re = /\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨/;
+      const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?|[a-z0-9-]+:sparkles?|i-[a-z0-9-]+-sparkles?|wand-magic-sparkles)$/;
+      const re = /\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfaWandMagicSparkles\b|(?<![\w-])fa-wand-magic-sparkles(?![\w-])/;
       const hits = [...matches(re, code)].map((m) => m.index);
 
       for (const literal of stringLiterals(code, stack)) {
@@ -1307,7 +1310,7 @@ const rules = [
     message: "Cards that grow on hover.",
     fix: "Show hover with a quick color or surface change. Keep scale for a small press-down on buttons.",
     find({ code }) {
-      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|:hover\s*\{[^}]*transform:\s*(?:scale\(1\.(?:0[2-9]|[1-9])|[^;}]*?\btranslateY\(\s*-\s*(?:\d*\.)?\d+)|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b/, code)].map((m) => m.index);
+      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|:hover\s*\{[^}]*transform:\s*(?:scale\(1\.(?:0[2-9]|[1-9])|[^;}]*?\btranslateY\(\s*-\s*(?:\d*\.)?\d+|[^;}]*?\btranslate(?:3d)?\(\s*(?:[^,;()]|\([^()]*\))+,\s*-\s*(?:\d*\.)?\d+)|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b|:hover\s*\{[^}]*?(?<![\w-])translate\s*:\s*(?:[^\s;}()]|\([^()]*\))+\s+-\s*(?:\d*\.)?\d+/, code)].map((m) => m.index);
     },
   },
   {
@@ -1438,7 +1441,8 @@ const rules = [
     fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
     find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
+      // Nuxt Image renders <NuxtImg> / <NuxtPicture>, also written kebab-case (#203).
+      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
