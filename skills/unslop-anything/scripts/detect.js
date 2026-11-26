@@ -83,6 +83,23 @@ function hexColors(snippet, stack) {
   return out;
 }
 
+// Flutter's Color.fromARGB(a, r, g, b) and Color.fromRGBO(r, g, b, opacity) in a
+// snippet, as uppercase hex, so they go through the same checks as
+// Color(0xFFRRGGBB). Alpha and opacity are dropped, as they are for hex. A
+// channel that is not a literal (a variable, an expression) skips the color.
+function flutterColors(snippet) {
+  const out = [];
+  const re = /\bColor\.from(ARGB|RGBO)\(([^()]*)\)/g;
+  let m;
+  while ((m = re.exec(snippet))) {
+    const args = m[2].split(",").map((a) => a.trim());
+    const rgb = m[1] === "ARGB" ? args.slice(1, 4) : args.slice(0, 3);
+    if (args.length < 4 || !rgb.every((c) => /^(?:0x[0-9a-fA-F]{1,2}|\d{1,3})$/.test(c))) continue;
+    out.push(rgb.map((c) => Math.min(255, Number(c)).toString(16).padStart(2, "0")).join("").toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -573,7 +590,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...flutterColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {

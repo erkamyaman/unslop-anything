@@ -1536,3 +1536,26 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
+
+test("slop-gradient reads Flutter Color.fromARGB and Color.fromRGBO stops (issue #161)", () => {
+  const rulesFor = (src) => scanSource(src, "hero.dart").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const gradient = (stops) => `Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [${stops}])))\n`;
+  const flagged = [
+    "Color.fromARGB(255, 124, 58, 237), Color.fromARGB(255, 219, 39, 119)",
+    "Color.fromRGBO(124, 58, 237, 1), Color.fromRGBO(219, 39, 119, 1)",
+    "const Color.fromRGBO(124, 58, 237, 0.8), Colors.white",
+    // Hex literals for the channels, and a trailing comma.
+    "Color.fromARGB(0xFF, 0x7C, 0x3A, 0xED,), Colors.white",
+    "Color.fromARGB(\n      255,\n      124,\n      58,\n      237,\n    ), Colors.white",
+  ];
+  for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
+  const quiet = [
+    "Color.fromARGB(255, 14, 165, 233), Color.fromARGB(255, 34, 197, 94)",
+    "Color.fromRGBO(14, 165, 233, 1), Color.fromRGBO(34, 197, 94, 1)",
+    // 255 here is the alpha, not a channel: (0, 0, 0) is black.
+    "Color.fromARGB(255, 0, 0, 0), Color.fromARGB(255, 255, 255, 255)",
+    // A channel that is not a literal cannot be read.
+    "Color.fromARGB(255, r, g, b), Color.fromRGBO(red, 58, 237, 1)",
+  ];
+  for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
+});
