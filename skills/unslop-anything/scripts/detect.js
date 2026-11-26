@@ -921,7 +921,6 @@ const rules = [
     find({ code }) {
       const input = /<TextInput\b/.exec(code);
       if (!input) return [];
-      if (!/<(?:ScrollView|FlatList|FlashList|SafeAreaView|KeyboardAwareScrollView)\b/.test(code)) return [];
       if (/KeyboardAvoidingView|KeyboardAware|KeyboardProvider|KeyboardStickyView|KeyboardController|automaticallyAdjustKeyboardInsets|keyboardShouldPersistTaps/.test(code)) return [];
       return [input.index];
     },
