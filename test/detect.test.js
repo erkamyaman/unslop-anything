@@ -1707,3 +1707,30 @@ test("slop-gradient reads Tailwind arbitrary rgb() and hsl() stops (issue #173)"
   ];
   for (const classes of quiet) assert.deepStrictEqual(lines(div(classes), "Hero.tsx"), [], classes);
 });
+
+test("slop-gradient reads hsl() hues in turn, rad and grad (issue #173)", () => {
+  const lines = (src, file) => scanSource(src, file).filter((f) => f.rule === "slop-gradient").map((f) => f.line);
+  const div = (classes) => `export default function Hero() {\n  return <div className="${classes}">Hi</div>;\n}\n`;
+  // All of these are the same purple: a hue of 270deg.
+  const flagged = [
+    "bg-gradient-to-r from-[hsl(270deg_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(0.75turn_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(4.7124rad,100%,50%)] to-white",
+    "bg-gradient-to-r from-[hsl(300grad_100%_50%)] to-white",
+    // Hues wrap: -90deg, -0.25turn and 1.75turn are 270deg too.
+    "bg-gradient-to-r from-[hsl(-90deg_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(-0.25turn_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsla(1.75turn,100%,50%,0.5)] to-white",
+  ];
+  for (const classes of flagged) assert.deepStrictEqual(lines(div(classes), "Hero.tsx"), [2], classes);
+  // A cyan hue of 180deg, in each unit, stays quiet.
+  const quiet = [
+    "bg-gradient-to-r from-[hsl(180deg_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(0.5turn_100%_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(3.1416rad,100%,50%)] to-white",
+    "bg-gradient-to-r from-[hsl(200grad_100%_50%)] to-white",
+    // A bare number is degrees, not turns: 0.75 is a red.
+    "bg-gradient-to-r from-[hsl(0.75_100%_50%)] to-white",
+  ];
+  for (const classes of quiet) assert.deepStrictEqual(lines(div(classes), "Hero.tsx"), [], classes);
+});
