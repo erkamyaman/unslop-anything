@@ -1542,6 +1542,3 @@ test("keyboard-cover flags a bare TextInput with no scroll view", () => {
   assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => f.rule), ["keyboard-cover"]);
 });
 
-
-
-
