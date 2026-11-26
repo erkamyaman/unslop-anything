@@ -1229,6 +1229,19 @@ test("nested-cards ignores dotted subcomponents and ion-card parts, still flags 
   assert.deepStrictEqual(rulesFor("<ion-card><ion-card></ion-card></ion-card>", "a.html"), ["nested-cards"]);
 });
 
+test("nested-cards flags Vuetify v-card and Angular Material mat-card nesting, not their card parts", () => {
+  const cardLines = (src, file) => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "nested-cards").map((f) => [f.line, f.severity]);
+  // Issue #202: the repro, and the same for mat-card.
+  const vue = '<template>\n  <v-card>\n    <v-card title="Pro plan"></v-card>\n  </v-card>\n</template>\n';
+  assert.deepStrictEqual(cardLines(vue, "Plans.vue"), [[2, "noticeable"]]);
+  assert.deepStrictEqual(cardLines("<mat-card><mat-card>Pro plan</mat-card></mat-card>\n", "plans.component.html"), [[1, "noticeable"]]);
+  // Card parts inside one card stay quiet, like ion-card-header.
+  const vueParts = '<template>\n  <v-card>\n    <v-card-title>Pro</v-card-title>\n    <v-card-text>$9</v-card-text>\n  </v-card>\n</template>\n';
+  assert.deepStrictEqual(cardLines(vueParts, "Plans.vue"), []);
+  const matParts = "<mat-card>\n  <mat-card-header>Pro</mat-card-header>\n  <mat-card-content>$9</mat-card-content>\n</mat-card>\n";
+  assert.deepStrictEqual(cardLines(matParts, "plans.component.html"), []);
+});
+
 test("nested-cards reads opening tags with tagEnd so arrows or > in props do not misread sibling cards", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).filter((f) => f.rule === "nested-cards").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor("<Card onClick={() => open()} />\n<Card><p>Second</p></Card>\n"), []);
@@ -1531,6 +1544,39 @@ test("hover-scale flags CSS transform translateY lift, but not zero or downward 
   assert.deepStrictEqual(rulesFor(".button:hover { transform: translateY(1px); }\n"), []);
 });
 
+test("hover-scale flags translate() and translate3d() lifts, not zero, downward, or sideways moves", () => {
+  const rulesFor = (src) => scanSource(src, "a.css", { kind: "web" }).map((f) => f.rule);
+  // Issue #194: the repro, a translate3d lift and a translate lift in two blocks.
+  const repro = ".card {\n  transition: transform 0.2s ease;\n}\n.card:hover {\n  transform: translate3d(0, -4px, 0);\n}\n.tile:hover {\n  transform: translate(0, -6px);\n}\n";
+  assert.deepStrictEqual(scanSource(repro, "card.css", { kind: "web" }).map((f) => [f.rule, f.line]), [["hover-scale", 4], ["hover-scale", 7]]);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(-2px, -0.25rem); }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(0, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate3d(0, 1px, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(4px, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(-4px); }\n"), []);
+  // A math function in an argument is read whole: its comma or closing paren is not the y separator.
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(min(0px, -4px), 2px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(calc(100% - 4px), -6px); }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card { transform: translate(0, -6px); }\n"), []);
+});
+
+test("hover-scale flags a standalone translate lift, not zero, downward, x-only, or longer property names", () => {
+  const rulesFor = (src) => scanSource(src, "a.css", { kind: "web" }).map((f) => f.rule);
+  // Issue #195: the repro.
+  const repro = ".card {\n  transition: translate 0.2s ease;\n}\n.card:hover {\n  translate: 0 -4px;\n}\n";
+  assert.deepStrictEqual(scanSource(repro, "card.css", { kind: "web" }).map((f) => [f.rule, f.line, f.severity]), [["hover-scale", 4, "minor"]]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 2px -0.5rem; }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 0 0; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 0 2px; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 4px; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { --card-translate: 0 -4px; }\n"), []);
+  // A math function is one component, so its inner minus is not a y value.
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% - 4px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% + 4px) -6px; }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: none; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card { translate: 0 -4px; }\n"), []);
+});
+
 test("glow-shadow catches Android shadowColor on one line or with alpha", () => {
   const oneLine = '<TextView android:shadowColor="#7C3AED" android:shadowRadius="20" />';
   const multiLine = '<TextView\n    android:shadowColor="#807C3AED"\n    android:shadowRadius="20" />';
@@ -1619,6 +1665,31 @@ test("sparkle-icon flags Iconify and Nuxt sparkle icon names, not prose or unrel
   ].join("\n");
   const findings = scanSource(vue, "Badge.vue").filter((f) => f.rule === "sparkle-icon");
   assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7]);
+});
+
+test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => {
+  const sparkleLines = (src) => scanSource(src, "Ai.tsx").filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+  // Issue #197: the repro.
+  const repro = 'import { HiSparkles } from "react-icons/hi2";\nimport { MdAutoAwesome } from "react-icons/md";\n\nexport function AiBadge() {\n  return <HiSparkles />;\n}\n';
+  assert.deepStrictEqual(sparkleLines(repro), [1, 2, 5]);
+  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
+    assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [1], name);
+  }
+  for (const name of ["HiStar", "MdAutoGraph", "SparkleCounter"]) {
+    assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [], name);
+  }
+});
+
+test("sparkle-icon flags Font Awesome's wand-magic-sparkles, not the plain wand", () => {
+  const sparkleLines = (src) => scanSource(src, "Ai.tsx").filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+  // Issue #198.
+  assert.deepStrictEqual(sparkleLines('import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('<i className="fa-solid fa-wand-magic-sparkles" />\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('<i class="fa-wand-magic-sparkles text-lg"></i>\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('import { faWandMagic } from "@fortawesome/free-solid-svg-icons";\n'), []);
+  assert.deepStrictEqual(sparkleLines('<i className="fa-solid fa-wand-magic" />\n'), []);
+  assert.deepStrictEqual(sparkleLines('<FontAwesomeIcon icon="wand-magic-sparkles" />\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('<FontAwesomeIcon icon="wand-magic" />\n'), []);
 });
 
 test("blankComments keeps slashes inside Swift raw strings and still finds later symbols", () => {
@@ -1876,6 +1947,24 @@ test("glow-shadow checks each box-shadow layer independently so a neutral layer 
     ['<div className="shadow-[0_1px_2px_rgba(0,0,0,0.2),0_2px_8px_rgba(128,128,128,0.3)]">x</div>\n', "a.tsx"],
   ];
   for (const [src, file] of quiet) assert.deepStrictEqual(rulesFor(src, file), [], src);
+});
+
+test("glow-shadow flags colored text-shadow, filter drop-shadow() and React Native textShadowColor, not neutral ones", () => {
+  const glowLines = (src, file = "a.css") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "glow-shadow").map((f) => f.line);
+  // Issue #199: a colored drop-shadow() in filter, also after another filter function.
+  assert.deepStrictEqual(glowLines(".logo {\n  filter: drop-shadow(0 0 20px #7c3aed);\n}\n"), [2]);
+  assert.deepStrictEqual(glowLines(".logo { filter: brightness(1.1) drop-shadow(0 0 12px rgb(124 58 237 / 0.6)); }\n"), [1]);
+  assert.deepStrictEqual(glowLines(".logo { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }\n"), []);
+  // Issue #200: a colored text-shadow, also when only one layer is colored.
+  assert.deepStrictEqual(glowLines(".title {\n  text-shadow: 0 0 20px #7c3aed;\n}\n"), [2]);
+  assert.deepStrictEqual(glowLines(".title { text-shadow: 0 1px 2px #000, 0 0 16px #7c3aed; }\n"), [1]);
+  assert.deepStrictEqual(glowLines(".title { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }\n"), []);
+  // Issue #201: React Native textShadowColor, next to the existing shadowColor case.
+  const rn = 'import { StyleSheet } from "react-native";\n\nconst styles = StyleSheet.create({\n  title: { textShadowColor: "#7C3AED", textShadowRadius: 12 },\n});\n';
+  assert.deepStrictEqual(glowLines(rn, "Title.tsx"), [4]);
+  assert.deepStrictEqual(glowLines('const s = { textShadowColor: "rgba(0, 0, 0, 0.3)" };\n', "a.tsx"), []);
+  assert.deepStrictEqual(glowLines('const s = { textShadowColor: "#000" };\n', "a.tsx"), []);
+  assert.deepStrictEqual(glowLines('const s = { shadowColor: "#7C3AED", shadowRadius: 12 };\n', "a.tsx"), [1]);
 });
 
 test("slop-gradient reads UIKit system colors like .systemPurple and .systemPink", () => {
