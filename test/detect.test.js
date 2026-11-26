@@ -1588,6 +1588,21 @@ test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () =>
   assert.deepStrictEqual(rulesFor('<button x-on:click="open = true">x</button>\n'), []);
 });
 
+test("clickable-div flags Qwik onClick$ handlers (issue #178)", () => {
+  const lines = (src) => scanSource(src, "card.tsx").filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  const card = 'export default function Card() {\n  return <div class="card" onClick$={() => open()}>Details</div>;\n}\n';
+  assert.deepStrictEqual(lines(card), [2]);
+  for (const tag of ["div", "span", "li", "td", "a"]) {
+    assert.deepStrictEqual(lines(`<${tag} onClick$={() => open()}>x</${tag}>\n`), [1], tag);
+  }
+  assert.deepStrictEqual(lines('<img src="/a.png" alt="A" onClick$={() => open()} />\n'), [1]);
+  // The exemptions still apply: an anchor with href, or an interactive role and tabIndex.
+  assert.deepStrictEqual(lines('<div role="button" tabIndex={0} onClick$={() => open()}>Open</div>\n'), []);
+  assert.deepStrictEqual(lines('<a href="/details" onClick$={() => track()}>Details</a>\n'), []);
+  assert.deepStrictEqual(lines('<div role="button" onClick$={() => open()}>Open</div>\n'), [1]);
+  assert.deepStrictEqual(lines('<button onClick$={() => open()}>Open</button>\n'), []);
+});
+
 test("template-theme flags create-vite's #646cff and #535bf2", () => {
   const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
   assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
