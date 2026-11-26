@@ -1531,6 +1531,9 @@ test("hover-scale flags translate() and translate3d() lifts, not zero, downward,
   assert.deepStrictEqual(rulesFor(".card:hover { transform: translate3d(0, 1px, 0); }\n"), []);
   assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(4px, 0); }\n"), []);
   assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(-4px); }\n"), []);
+  // A math function in an argument is read whole: its comma or closing paren is not the y separator.
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(min(0px, -4px), 2px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(calc(100% - 4px), -6px); }\n"), ["hover-scale"]);
 });
 
 test("hover-scale flags a standalone translate lift, not zero, downward, x-only, or longer property names", () => {
@@ -1543,6 +1546,9 @@ test("hover-scale flags a standalone translate lift, not zero, downward, x-only,
   assert.deepStrictEqual(rulesFor(".card:hover { translate: 0 2px; }\n"), []);
   assert.deepStrictEqual(rulesFor(".card:hover { translate: 4px; }\n"), []);
   assert.deepStrictEqual(rulesFor(".card:hover { --card-translate: 0 -4px; }\n"), []);
+  // A math function is one component, so its inner minus is not a y value.
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% - 4px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% + 4px) -6px; }\n"), ["hover-scale"]);
 });
 
 test("glow-shadow catches Android shadowColor on one line or with alpha", () => {
