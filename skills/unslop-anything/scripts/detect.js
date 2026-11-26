@@ -699,9 +699,10 @@ const rules = [
             break;
           }
         }
-        // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777].
-        const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");
-        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(scope) || hexColors(arbitrary, stack).some(isSlopHue)) hits.push(m.index);
+        // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777],
+        // or from-[rgb(124,58,237)], where Tailwind writes spaces as _.
+        const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8}|(?:rgba?|hsla?)\([^\]\s]*\))\]/g)].map((s) => s[1].replace(/_/g, " ")).join(" ");
+        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(scope) || [...hexColors(arbitrary, stack), ...cssFunctionColors(arbitrary)].some(isSlopHue)) hits.push(m.index);
       }
       return hits;
     },

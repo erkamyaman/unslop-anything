@@ -1684,3 +1684,26 @@ test("slop-gradient reads SwiftUI Color(red:green:blue:) stops (issue #162)", ()
   ];
   for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
 });
+
+test("slop-gradient reads Tailwind arbitrary rgb() and hsl() stops (issue #173)", () => {
+  const lines = (src, file) => scanSource(src, file).filter((f) => f.rule === "slop-gradient").map((f) => f.line);
+  const div = (classes) => `export default function Hero() {\n  return <div className="${classes}">Hi</div>;\n}\n`;
+  const flagged = [
+    "bg-gradient-to-r from-[rgb(124,58,237)] to-[rgb(219,39,119)]",
+    "bg-linear-to-r from-[#0ea5e9] via-[rgba(124,58,237,0.8)] to-[#22c55e]",
+    // Tailwind writes spaces as underscores.
+    "bg-gradient-to-r from-[rgb(124_58_237)] to-white",
+    "bg-gradient-to-r from-[rgb(124_58_237_/_50%)] to-white",
+    "bg-gradient-to-r from-[hsl(262,83%,58%)] to-white",
+    "bg-gradient-to-r from-sky-500 to-[hsl(262_83%_58%)]",
+  ];
+  for (const classes of flagged) assert.deepStrictEqual(lines(div(classes), "Hero.tsx"), [2], classes);
+  const quiet = [
+    "bg-gradient-to-r from-[rgb(14,165,233)] to-[rgb(34,197,94)]",
+    "bg-gradient-to-r from-[hsl(199_89%_48%)] to-[hsl(142_71%_45%)]",
+    "bg-gradient-to-r from-[rgb(0,0,0)] to-[rgb(255,255,255)]",
+    // An rgb() purple outside a gradient stop is not a stop.
+    "bg-gradient-to-r from-sky-500 to-cyan-500 shadow-[0_0_8px_rgb(124,58,237)]",
+  ];
+  for (const classes of quiet) assert.deepStrictEqual(lines(div(classes), "Hero.tsx"), [], classes);
+});
