@@ -20,7 +20,7 @@ These break the web for real people. They are Critical or Noticeable, whatever t
 - **Real controls.** Actions are `<button>`, navigation is `<a href>`. A `div` or `span` with a click handler is unreachable by keyboard and silent to screen readers [`clickable-div`].
 - **Visible focus.** Every interactive element shows a `:focus-visible` style, in the palette, instantly. `outline: none` with nothing in its place locks keyboard users out [`focus-removed`].
 - **Zoom stays on.** No `maximum-scale=1` or `user-scalable=no` [`zoom-disabled`]. Inputs at 16px stop iOS from zooming on focus.
-- **Text alternatives.** Every content image has alt text; decoration has `alt=""` [`img-no-alt`].
+- **Text alternatives.** Every content image has alt text, including framework image components such as `<Image>`, `<NuxtImg>` and Vuetify's `<v-img>` / `<VImg>`; decoration has `alt=""` [`img-no-alt`].
 - **URLs mean something.** The back button returns to the previous view. Filters, tabs, search, and pagination that someone would share live in the URL. Opening in a new tab works.
 - **Contrast** 4.5:1 for body text and 3:1 for large text and meaningful icons, in light and dark.
 - **Reduced motion.** Every animation has a `prefers-reduced-motion: reduce` fallback. Content is visible without it [`reduced-motion`].

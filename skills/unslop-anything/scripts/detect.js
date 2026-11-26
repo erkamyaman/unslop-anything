@@ -1442,7 +1442,8 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       // Nuxt Image renders <NuxtImg> / <NuxtPicture>, also written kebab-case (#203).
-      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture)(?=[\s/>])/, code)) {
+      // Vuetify renders <v-img> / <VImg> as an <img> too (#229).
+      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
