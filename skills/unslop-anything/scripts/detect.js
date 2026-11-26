@@ -90,7 +90,8 @@ function hexColors(snippet, stack) {
 // number skips the color.
 function swiftRgbColors(snippet) {
   const out = [];
-  const component = "(\\d+(?:\\.\\d+)?)(?:\\s*\\/\\s*(\\d+(?:\\.\\d+)?))?";
+  const number = "\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
+  const component = `(${number})(?:\\s*\\/\\s*(${number}))?`;
   const re = new RegExp(`\\bColor\\(\\s*(?:\\.\\w+\\s*,\\s*)?red\\s*:\\s*${component}\\s*,\\s*green\\s*:\\s*${component}\\s*,\\s*blue\\s*:\\s*${component}\\s*[,)]`, "g");
   const hex2 = (value, divisor) => {
     const unit = divisor === undefined ? Number(value) : Number(value) / Number(divisor);

@@ -1547,6 +1547,8 @@ test("slop-gradient reads SwiftUI Color(red:green:blue:) stops (issue #162)", ()
     // Components written as a fraction of 255.
     "Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255), .white",
     "Color(red: 124.0/255.0, green: 58.0/255.0, blue: 237.0/255.0), .white",
+    // Swift also accepts an exponent.
+    "Color(red: 4.9e-1, green: 2.3e-1, blue: 9.3e-1), .white",
     "Color(\n      red: 0.49,\n      green: 0.23,\n      blue: 0.93\n    ), .white",
   ];
   for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
