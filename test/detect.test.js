@@ -1536,3 +1536,12 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
+
+test("keyboard-cover flags a bare TextInput with no scroll view", () => {
+  const src = "<View>\n  <TextInput placeholder=\"Email\" />\n</View>\n";
+  assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => f.rule), ["keyboard-cover"]);
+});
+
+
+
+
