@@ -565,6 +565,17 @@ test("transition-all flags a shorthand that names no property, since it defaults
   assert.deepStrictEqual(rulesFor(".card { transition: .2s ease 0.1s; }\n"), ["transition-all"]);
 });
 
+test("transition-all flags transitionProperty: \"all\" in JS style objects, not named properties or longer words", () => {
+  const lines = (src) => scanSource(src, "card.ts", { kind: "web" }).filter((f) => f.rule === "transition-all").map((f) => [f.line, f.severity]);
+  // Issue #205: the repro.
+  assert.deepStrictEqual(lines('export const card = {\n  transitionProperty: "all",\n  transitionDuration: "200ms",\n};\n'), [[2, "minor"]]);
+  for (const quote of ["'", "`"]) {
+    assert.deepStrictEqual(lines(`const s = { transitionProperty: ${quote}all${quote} };\n`).map(([line]) => line), [1], quote);
+  }
+  assert.deepStrictEqual(lines('const s = { transitionProperty: "opacity, transform" };\n'), []);
+  assert.deepStrictEqual(lines('const s = { transitionProperty: "allowed" };\n'), []);
+});
+
 test("reduced-motion flags animations with no prefers-reduced-motion fallback (issue #72)", () => {
   // The issue's exact repro: a @keyframes animation with no fallback.
   const repro = ".badge { animation: bounce 1s infinite; }\n@keyframes bounce { 50% { transform: translateY(-4px); } }\n";
