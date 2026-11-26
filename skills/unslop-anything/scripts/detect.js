@@ -661,7 +661,8 @@ const rules = [
     find({ code, stack }) {
       const re = stack === "xml"
         ? /#(?:[fF]{2})?(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/
-        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4)\b|<HelloWave\b|<ParallaxScrollView\b/;
+        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4|646[cC][fF]{2}|535[bB][fF]2)\b|<HelloWave\b|<ParallaxScrollView\b/;
+      // #646cff / #535bf2 are create-vite's starter link and hover colors.
       // One finding per file, like drawer-nav: the default tint and the
       // starter-screen components are the same leftover.
       const first = matches(re, code).next();
@@ -1143,7 +1144,9 @@ const rules = [
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
         let top = m[0];
         walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
-        if (!/\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/.test(top)) continue;
+        // onClick/onclick (React, HTML), @click/v-on:click (Vue, Alpine), x-on:click (Alpine),
+        // on:click (Svelte) and (click) (Angular).
+        if (!/\s(?:(?:on[cC]lick|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
         // keyboard- and screen-reader-accessible when it has both an
