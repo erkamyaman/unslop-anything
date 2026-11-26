@@ -1611,6 +1611,29 @@ test("sparkle-icon flags Iconify and Nuxt sparkle icon names, not prose or unrel
   assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7]);
 });
 
+test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => {
+  const sparkleLines = (src) => scanSource(src, "Ai.tsx").filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+  // Issue #197: the repro.
+  const repro = 'import { HiSparkles } from "react-icons/hi2";\nimport { MdAutoAwesome } from "react-icons/md";\n\nexport function AiBadge() {\n  return <HiSparkles />;\n}\n';
+  assert.deepStrictEqual(sparkleLines(repro), [1, 2, 5]);
+  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
+    assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [1], name);
+  }
+  for (const name of ["HiStar", "MdAutoGraph", "SparkleCounter"]) {
+    assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [], name);
+  }
+});
+
+test("sparkle-icon flags Font Awesome's wand-magic-sparkles, not the plain wand", () => {
+  const sparkleLines = (src) => scanSource(src, "Ai.tsx").filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+  // Issue #198.
+  assert.deepStrictEqual(sparkleLines('import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('<i className="fa-solid fa-wand-magic-sparkles" />\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('<i class="fa-wand-magic-sparkles text-lg"></i>\n'), [1]);
+  assert.deepStrictEqual(sparkleLines('import { faWandMagic } from "@fortawesome/free-solid-svg-icons";\n'), []);
+  assert.deepStrictEqual(sparkleLines('<i className="fa-solid fa-wand-magic" />\n'), []);
+});
+
 test("blankComments keeps slashes inside Swift raw strings and still finds later symbols", () => {
   const src = [
     'let label = #"A "// B"#',
