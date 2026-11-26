@@ -1547,6 +1547,9 @@ test("slop-gradient reads Flutter Color.fromARGB and Color.fromRGBO stops (issue
     // Hex literals for the channels, and a trailing comma.
     "Color.fromARGB(0xFF, 0x7C, 0x3A, 0xED,), Colors.white",
     "Color.fromARGB(\n      255,\n      124,\n      58,\n      237,\n    ), Colors.white",
+    // The alpha or opacity can be any expression; only the channels are read.
+    "Color.fromRGBO(124, 58, 237, animation.value.clamp(0.0, 1.0)), Colors.white",
+    "Color.fromARGB((255 * t).round(), 124, 58, 237), Colors.white",
   ];
   for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
   const quiet = [
@@ -1556,6 +1559,9 @@ test("slop-gradient reads Flutter Color.fromARGB and Color.fromRGBO stops (issue
     "Color.fromARGB(255, 0, 0, 0), Color.fromARGB(255, 255, 255, 255)",
     // A channel that is not a literal cannot be read.
     "Color.fromARGB(255, r, g, b), Color.fromRGBO(red, 58, 237, 1)",
+    "Color.fromRGBO(shade(124), 58, 237, 1), Colors.white",
+    // Flutter keeps the low eight bits of a channel: 256 is 0, so this is (0, 58, 237), a blue.
+    "Color.fromARGB(255, 256, 58, 237), Colors.white",
   ];
   for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
 });

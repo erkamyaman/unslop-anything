@@ -85,17 +85,31 @@ function hexColors(snippet, stack) {
 
 // Flutter's Color.fromARGB(a, r, g, b) and Color.fromRGBO(r, g, b, opacity) in a
 // snippet, as uppercase hex, so they go through the same checks as
-// Color(0xFFRRGGBB). Alpha and opacity are dropped, as they are for hex. A
-// channel that is not a literal (a variable, an expression) skips the color.
+// Color(0xFFRRGGBB). Alpha and opacity are dropped, as they are for hex, and
+// may be any expression. A channel that is not a literal (a variable, an
+// expression) skips the color. Flutter keeps the low eight bits of a channel.
 function flutterColors(snippet) {
   const out = [];
-  const re = /\bColor\.from(ARGB|RGBO)\(([^()]*)\)/g;
+  const re = /\bColor\.from(ARGB|RGBO)\(/g;
   let m;
   while ((m = re.exec(snippet))) {
-    const args = m[2].split(",").map((a) => a.trim());
+    const open = m.index + m[0].length - 1;
+    const close = closeOf(snippet, open) - 1;
+    // Split on top-level commas only: the opacity may be a call of its own.
+    const args = [];
+    let depth = 0;
+    let start = open + 1;
+    for (let i = start; i <= close; i++) {
+      const c = snippet[i];
+      if ("([{".includes(c)) depth++;
+      else if (i === close || (c === "," && depth === 0)) {
+        args.push(snippet.slice(start, i).trim());
+        start = i + 1;
+      } else if (")]}".includes(c)) depth--;
+    }
     const rgb = m[1] === "ARGB" ? args.slice(1, 4) : args.slice(0, 3);
-    if (args.length < 4 || !rgb.every((c) => /^(?:0x[0-9a-fA-F]{1,2}|\d{1,3})$/.test(c))) continue;
-    out.push(rgb.map((c) => Math.min(255, Number(c)).toString(16).padStart(2, "0")).join("").toUpperCase());
+    if (args.length < 4 || !rgb.every((c) => /^(?:0x[0-9a-fA-F]+|\d+)$/.test(c))) continue;
+    out.push(rgb.map((c) => (Number(c) & 0xff).toString(16).padStart(2, "0")).join("").toUpperCase());
   }
   return out;
 }
