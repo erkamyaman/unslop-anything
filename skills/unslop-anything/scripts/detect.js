@@ -94,7 +94,9 @@ function isSaturated(hex) {
   return s >= 0.35 && l >= 0.15 && l <= 0.9;
 }
 
-const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia)\b/i;
+// Also the CSS named colors in that band (rebeccapurple, hotpink, ...), which a
+// plain \bpurple\b or \bpink\b does not reach.
+const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|rebeccapurple|mediumpurple|blueviolet|darkviolet|darkorchid|mediumorchid|hotpink|deeppink|mediumvioletred)\b/i;
 
 // Replace comments with spaces, keeping offsets and newlines, so rules never
 // match commented-out code. Strings are kept.

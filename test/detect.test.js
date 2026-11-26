@@ -566,6 +566,14 @@ test("slop-gradient reads Tailwind arbitrary hex stops (issue #143)", () => {
   assert.deepStrictEqual(lines('<div class="bg-[#7c3aed] text-white">Hello</div>\n', "Hero.html"), []);
 });
 
+test("slop-gradient reads CSS named colors in the slop band (issue #163)", () => {
+  const rulesFor = (src) => scanSource(src, "a.css").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  for (const name of ["rebeccapurple", "mediumpurple", "blueviolet", "darkviolet", "darkorchid", "mediumorchid", "hotpink", "deeppink", "mediumvioletred", "RebeccaPurple"]) {
+    assert.deepStrictEqual(rulesFor(`.a { background: linear-gradient(${name}, white); }\n`), ["slop-gradient"], name);
+  }
+  assert.deepStrictEqual(rulesFor(".a { background: linear-gradient(skyblue, seagreen); }\n"), []);
+});
+
 test("slop-gradient reads only the gradient's own colors (issue #67)", () => {
   const gradientLines = (src, file) =>
     scanSource(src, file).filter((f) => f.rule === "slop-gradient").map((f) => f.line);
