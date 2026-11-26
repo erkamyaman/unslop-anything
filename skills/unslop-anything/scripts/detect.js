@@ -83,6 +83,41 @@ function hexColors(snippet, stack) {
   return out;
 }
 
+// rgb()/rgba() and hsl()/hsla() colors in a snippet, as uppercase hex, so they can
+// go through the same checks as hex stops. Commas or spaces both work
+// (`rgb(124, 58, 237)`, `rgb(124 58 237 / 50%)`, `hsl(262 83% 58%)`); alpha is ignored.
+function cssFunctionColors(snippet) {
+  const out = [];
+  const num = "([+-]?(?:\\d+\\.?\\d*|\\.\\d+))";
+  const re = new RegExp(`\\b(rgba?|hsla?)\\(\\s*${num}(%|deg)?\\s*[,\\s]\\s*${num}(%)?\\s*[,\\s]\\s*${num}(%)?`, "gi");
+  const hex2 = (v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0");
+  let m;
+  while ((m = re.exec(snippet))) {
+    const [, fn, a, , b, bPct, c, cPct] = m;
+    let r, g, bl;
+    if (fn[0].toLowerCase() === "r") {
+      const channel = (v, pct) => (pct ? (parseFloat(v) * 255) / 100 : parseFloat(v));
+      [r, g, bl] = [channel(a, m[3]), channel(b, bPct), channel(c, cPct)];
+    } else {
+      const h = (((parseFloat(a) % 360) + 360) % 360) / 360;
+      const sat = Math.min(1, Math.max(0, parseFloat(b) / 100));
+      const lig = Math.min(1, Math.max(0, parseFloat(c) / 100));
+      const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
+      const p = 2 * lig - q;
+      const hue = (t) => {
+        t = (t + 1) % 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      [r, g, bl] = [hue(h + 1 / 3) * 255, hue(h) * 255, hue(h - 1 / 3) * 255];
+    }
+    out.push((hex2(r) + hex2(g) + hex2(bl)).toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -573,7 +608,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...cssFunctionColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
