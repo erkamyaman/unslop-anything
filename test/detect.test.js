@@ -1616,7 +1616,7 @@ test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => 
   // Issue #197: the repro.
   const repro = 'import { HiSparkles } from "react-icons/hi2";\nimport { MdAutoAwesome } from "react-icons/md";\n\nexport function AiBadge() {\n  return <HiSparkles />;\n}\n';
   assert.deepStrictEqual(sparkleLines(repro), [1, 2, 5]);
-  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
+  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
     assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [1], name);
   }
   for (const name of ["HiStar", "MdAutoGraph", "SparkleCounter"]) {
