@@ -573,7 +573,9 @@ test("transition-all flags transitionProperty: \"all\" in JS style objects, not 
     assert.deepStrictEqual(lines(`const s = { transitionProperty: ${quote}all${quote} };\n`).map(([line]) => line), [1], quote);
   }
   assert.deepStrictEqual(lines('const s = { transitionProperty: "opacity, transform" };\n'), []);
+  assert.deepStrictEqual(lines('const s = { transitionProperty: "color, all" };\n').map(([line]) => line), [1]);
   assert.deepStrictEqual(lines('const s = { transitionProperty: "allowed" };\n'), []);
+  assert.deepStrictEqual(lines('const s = { transitionProperty: "opacity", pointerEvents: "all" };\n'), []);
 });
 
 test("reduced-motion flags animations with no prefers-reduced-motion fallback (issue #72)", () => {
