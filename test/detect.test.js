@@ -1547,4 +1547,5 @@ test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () =>
   assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" x-on:click="open = true">x</div>\n'), []);
   assert.deepStrictEqual(rulesFor('<a href="/x" (click)="track()">x</a>\n'), []);
   assert.deepStrictEqual(rulesFor('<button (click)="open()">x</button>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button x-on:click="open = true">x</button>\n'), []);
 });
