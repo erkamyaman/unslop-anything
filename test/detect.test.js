@@ -1541,4 +1541,3 @@ test("keyboard-cover flags a bare TextInput with no scroll view", () => {
   const src = "<View>\n  <TextInput placeholder=\"Email\" />\n</View>\n";
   assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => f.rule), ["keyboard-cover"]);
 });
-
