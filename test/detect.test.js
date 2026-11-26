@@ -1536,3 +1536,26 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
+
+test("slop-gradient reads SwiftUI Color(red:green:blue:) stops (issue #162)", () => {
+  const rulesFor = (src) => scanSource(src, "Hero.swift").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const gradient = (stops) => `LinearGradient(colors: [${stops}], startPoint: .leading, endPoint: .trailing)\n`;
+  const flagged = [
+    "Color(red: 0.49, green: 0.23, blue: 0.93), Color(red: 0.86, green: 0.15, blue: 0.47)",
+    "Color(red: 0.49, green: 0.23, blue: 0.93, opacity: 0.8), .white",
+    "Color(.sRGB, red: 0.49, green: 0.23, blue: 0.93, opacity: 1), .white",
+    // Components written as a fraction of 255.
+    "Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255), .white",
+    "Color(red: 124.0/255.0, green: 58.0/255.0, blue: 237.0/255.0), .white",
+    "Color(\n      red: 0.49,\n      green: 0.23,\n      blue: 0.93\n    ), .white",
+  ];
+  for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
+  const quiet = [
+    "Color(red: 0.05, green: 0.65, blue: 0.91), Color(red: 0.13, green: 0.77, blue: 0.37)",
+    "Color(red: 14 / 255, green: 165 / 255, blue: 233 / 255), Color(red: 34 / 255, green: 197 / 255, blue: 94 / 255)",
+    "Color(red: 0, green: 0, blue: 0), Color(red: 1, green: 1, blue: 1)",
+    // A component that is not a number cannot be read.
+    "Color(red: r, green: g, blue: b), Color(red: tint.r, green: 0.23, blue: 0.93)",
+  ];
+  for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
+});

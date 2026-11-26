@@ -83,6 +83,27 @@ function hexColors(snippet, stack) {
   return out;
 }
 
+// SwiftUI's Color(red:green:blue:) in a snippet, as uppercase hex, so it goes
+// through the same checks as Color(hex: 0x7C3AED). Components run from 0 to 1
+// and are often written as a fraction (124 / 255). A leading color space
+// (.sRGB) and a trailing opacity are skipped; a component that is not a
+// number skips the color.
+function swiftRgbColors(snippet) {
+  const out = [];
+  const component = "(\\d+(?:\\.\\d+)?)(?:\\s*\\/\\s*(\\d+(?:\\.\\d+)?))?";
+  const re = new RegExp(`\\bColor\\(\\s*(?:\\.\\w+\\s*,\\s*)?red\\s*:\\s*${component}\\s*,\\s*green\\s*:\\s*${component}\\s*,\\s*blue\\s*:\\s*${component}\\s*[,)]`, "g");
+  const hex2 = (value, divisor) => {
+    const unit = divisor === undefined ? Number(value) : Number(value) / Number(divisor);
+    return Math.round(Math.min(1, Math.max(0, unit)) * 255).toString(16).padStart(2, "0");
+  };
+  let m;
+  while ((m = re.exec(snippet))) {
+    if ([m[2], m[4], m[6]].some((divisor) => Number(divisor) === 0)) continue;
+    out.push((hex2(m[1], m[2]) + hex2(m[3], m[4]) + hex2(m[5], m[6])).toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -573,7 +594,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...swiftRgbColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
