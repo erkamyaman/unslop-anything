@@ -1263,6 +1263,16 @@ test("img-no-alt accepts Angular [alt] bindings and Svelte {alt} shorthand", () 
   assert.deepStrictEqual(rulesFor("<img {src} />\n", "A.svelte"), ["img-no-alt"]);
 });
 
+test("img-no-alt flags Nuxt Image's NuxtImg and NuxtPicture without alt, also kebab-case", () => {
+  const altLines = (src) => scanSource(src, "Hero.vue", { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  // Issue #203: the repro.
+  assert.deepStrictEqual(altLines('<template>\n  <NuxtImg src="/hero.png" />\n  <NuxtPicture src="/team.png" />\n</template>\n'), [2, 3]);
+  assert.deepStrictEqual(altLines('<nuxt-img src="/hero.png" />\n<nuxt-picture src="/team.png" />\n'), [1, 2]);
+  assert.deepStrictEqual(altLines('<NuxtImg src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<NuxtPicture src="/divider.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<nuxt-img :src="photo.url" :alt="photo.caption" />\n'), []);
+});
+
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's repro.
