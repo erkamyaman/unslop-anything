@@ -1521,6 +1521,39 @@ test("hover-scale flags CSS transform translateY lift, but not zero or downward 
   assert.deepStrictEqual(rulesFor(".button:hover { transform: translateY(1px); }\n"), []);
 });
 
+test("hover-scale flags translate() and translate3d() lifts, not zero, downward, or sideways moves", () => {
+  const rulesFor = (src) => scanSource(src, "a.css", { kind: "web" }).map((f) => f.rule);
+  // Issue #194: the repro, a translate3d lift and a translate lift in two blocks.
+  const repro = ".card {\n  transition: transform 0.2s ease;\n}\n.card:hover {\n  transform: translate3d(0, -4px, 0);\n}\n.tile:hover {\n  transform: translate(0, -6px);\n}\n";
+  assert.deepStrictEqual(scanSource(repro, "card.css", { kind: "web" }).map((f) => [f.rule, f.line]), [["hover-scale", 4], ["hover-scale", 7]]);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(-2px, -0.25rem); }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(0, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate3d(0, 1px, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(4px, 0); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(-4px); }\n"), []);
+  // A math function in an argument is read whole: its comma or closing paren is not the y separator.
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(min(0px, -4px), 2px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { transform: translate(calc(100% - 4px), -6px); }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card { transform: translate(0, -6px); }\n"), []);
+});
+
+test("hover-scale flags a standalone translate lift, not zero, downward, x-only, or longer property names", () => {
+  const rulesFor = (src) => scanSource(src, "a.css", { kind: "web" }).map((f) => f.rule);
+  // Issue #195: the repro.
+  const repro = ".card {\n  transition: translate 0.2s ease;\n}\n.card:hover {\n  translate: 0 -4px;\n}\n";
+  assert.deepStrictEqual(scanSource(repro, "card.css", { kind: "web" }).map((f) => [f.rule, f.line, f.severity]), [["hover-scale", 4, "minor"]]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 2px -0.5rem; }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 0 0; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 0 2px; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: 4px; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { --card-translate: 0 -4px; }\n"), []);
+  // A math function is one component, so its inner minus is not a y value.
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% - 4px); }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: calc(100% + 4px) -6px; }\n"), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor(".card:hover { translate: none; }\n"), []);
+  assert.deepStrictEqual(rulesFor(".card { translate: 0 -4px; }\n"), []);
+});
+
 test("glow-shadow catches Android shadowColor on one line or with alpha", () => {
   const oneLine = '<TextView android:shadowColor="#7C3AED" android:shadowRadius="20" />';
   const multiLine = '<TextView\n    android:shadowColor="#807C3AED"\n    android:shadowRadius="20" />';
