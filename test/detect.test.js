@@ -1229,6 +1229,19 @@ test("nested-cards ignores dotted subcomponents and ion-card parts, still flags 
   assert.deepStrictEqual(rulesFor("<ion-card><ion-card></ion-card></ion-card>", "a.html"), ["nested-cards"]);
 });
 
+test("nested-cards flags Vuetify v-card and Angular Material mat-card nesting, not their card parts", () => {
+  const cardLines = (src, file) => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "nested-cards").map((f) => [f.line, f.severity]);
+  // Issue #202: the repro, and the same for mat-card.
+  const vue = '<template>\n  <v-card>\n    <v-card title="Pro plan"></v-card>\n  </v-card>\n</template>\n';
+  assert.deepStrictEqual(cardLines(vue, "Plans.vue"), [[2, "noticeable"]]);
+  assert.deepStrictEqual(cardLines("<mat-card><mat-card>Pro plan</mat-card></mat-card>\n", "plans.component.html"), [[1, "noticeable"]]);
+  // Card parts inside one card stay quiet, like ion-card-header.
+  const vueParts = '<template>\n  <v-card>\n    <v-card-title>Pro</v-card-title>\n    <v-card-text>$9</v-card-text>\n  </v-card>\n</template>\n';
+  assert.deepStrictEqual(cardLines(vueParts, "Plans.vue"), []);
+  const matParts = "<mat-card>\n  <mat-card-header>Pro</mat-card-header>\n  <mat-card-content>$9</mat-card-content>\n</mat-card>\n";
+  assert.deepStrictEqual(cardLines(matParts, "plans.component.html"), []);
+});
+
 test("nested-cards reads opening tags with tagEnd so arrows or > in props do not misread sibling cards", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).filter((f) => f.rule === "nested-cards").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor("<Card onClick={() => open()} />\n<Card><p>Second</p></Card>\n"), []);
