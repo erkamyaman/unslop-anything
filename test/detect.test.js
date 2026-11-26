@@ -1536,3 +1536,12 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines("Icon(Icons.menu_book)\n", "header.dart"), []);
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
+
+test("template-theme flags create-vite's #646cff and #535bf2", () => {
+  const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
+  assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a:hover { color: #535BF2; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646CFF; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646cf0; }\n"), []);
+  assert.deepStrictEqual(rulesFor("a { color: #646cffaa; }\n"), []);
+});
