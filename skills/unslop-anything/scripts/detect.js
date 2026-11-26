@@ -83,6 +83,94 @@ function hexColors(snippet, stack) {
   return out;
 }
 
+// rgb()/rgba() and hsl()/hsla() colors in a snippet, as uppercase hex, so they can
+// go through the same checks as hex stops. Commas or spaces both work
+// (`rgb(124, 58, 237)`, `rgb(124 58 237 / 50%)`, `hsl(262 83% 58%)`); alpha is ignored.
+function cssFunctionColors(snippet) {
+  const out = [];
+  const num = "([+-]?(?:\\d+\\.?\\d*|\\.\\d+))";
+  const re = new RegExp(`\\b(rgba?|hsla?)\\(\\s*${num}(%|deg)?\\s*[,\\s]\\s*${num}(%)?\\s*[,\\s]\\s*${num}(%)?`, "gi");
+  const hex2 = (v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0");
+  let m;
+  while ((m = re.exec(snippet))) {
+    const [, fn, a, , b, bPct, c, cPct] = m;
+    let r, g, bl;
+    if (fn[0].toLowerCase() === "r") {
+      const channel = (v, pct) => (pct ? (parseFloat(v) * 255) / 100 : parseFloat(v));
+      [r, g, bl] = [channel(a, m[3]), channel(b, bPct), channel(c, cPct)];
+    } else {
+      const h = (((parseFloat(a) % 360) + 360) % 360) / 360;
+      const sat = Math.min(1, Math.max(0, parseFloat(b) / 100));
+      const lig = Math.min(1, Math.max(0, parseFloat(c) / 100));
+      const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
+      const p = 2 * lig - q;
+      const hue = (t) => {
+        t = (t + 1) % 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      [r, g, bl] = [hue(h + 1 / 3) * 255, hue(h) * 255, hue(h - 1 / 3) * 255];
+    }
+    out.push((hex2(r) + hex2(g) + hex2(bl)).toUpperCase());
+  }
+  return out;
+}
+
+// Flutter's Color.fromARGB(a, r, g, b) and Color.fromRGBO(r, g, b, opacity) in a
+// snippet, as uppercase hex, so they go through the same checks as
+// Color(0xFFRRGGBB). Alpha and opacity are dropped, as they are for hex, and
+// may be any expression. A channel that is not a literal (a variable, an
+// expression) skips the color. Flutter keeps the low eight bits of a channel.
+function flutterColors(snippet) {
+  const out = [];
+  const re = /\bColor\.from(ARGB|RGBO)\(/g;
+  let m;
+  while ((m = re.exec(snippet))) {
+    const open = m.index + m[0].length - 1;
+    const close = closeOf(snippet, open) - 1;
+    // Split on top-level commas only: the opacity may be a call of its own.
+    const args = [];
+    let depth = 0;
+    let start = open + 1;
+    for (let i = start; i <= close; i++) {
+      const c = snippet[i];
+      if ("([{".includes(c)) depth++;
+      else if (i === close || (c === "," && depth === 0)) {
+        args.push(snippet.slice(start, i).trim());
+        start = i + 1;
+      } else if (")]}".includes(c)) depth--;
+    }
+    const rgb = m[1] === "ARGB" ? args.slice(1, 4) : args.slice(0, 3);
+    if (args.length < 4 || !rgb.every((c) => /^(?:0x[0-9a-fA-F]+|\d+)$/.test(c))) continue;
+    out.push(rgb.map((c) => (Number(c) & 0xff).toString(16).padStart(2, "0")).join("").toUpperCase());
+  }
+  return out;
+}
+
+// SwiftUI's Color(red:green:blue:) in a snippet, as uppercase hex, so it goes
+// through the same checks as Color(hex: 0x7C3AED). Components run from 0 to 1
+// and are often written as a fraction (124 / 255). A leading color space
+// (.sRGB) and a trailing opacity are skipped; a component that is not a
+// number skips the color.
+function swiftRgbColors(snippet) {
+  const out = [];
+  const number = "\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
+  const component = `(${number})(?:\\s*\\/\\s*(${number}))?`;
+  const re = new RegExp(`\\bColor\\(\\s*(?:\\.\\w+\\s*,\\s*)?red\\s*:\\s*${component}\\s*,\\s*green\\s*:\\s*${component}\\s*,\\s*blue\\s*:\\s*${component}\\s*[,)]`, "g");
+  const hex2 = (value, divisor) => {
+    const unit = divisor === undefined ? Number(value) : Number(value) / Number(divisor);
+    return Math.round(Math.min(1, Math.max(0, unit)) * 255).toString(16).padStart(2, "0");
+  };
+  let m;
+  while ((m = re.exec(snippet))) {
+    if ([m[2], m[4], m[6]].some((divisor) => Number(divisor) === 0)) continue;
+    out.push((hex2(m[1], m[2]) + hex2(m[3], m[4]) + hex2(m[5], m[6])).toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -94,7 +182,9 @@ function isSaturated(hex) {
   return s >= 0.35 && l >= 0.15 && l <= 0.9;
 }
 
-const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia)\b/i;
+// Also the CSS named colors in that band (rebeccapurple, hotpink, ...), which a
+// plain \bpurple\b or \bpink\b does not reach.
+const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|rebeccapurple|mediumpurple|blueviolet|darkviolet|darkorchid|mediumorchid|hotpink|deeppink|mediumvioletred)\b/i;
 
 // Replace comments with spaces, keeping offsets and newlines, so rules never
 // match commented-out code. Strings are kept.
@@ -535,6 +625,26 @@ function gradientScope(text, start, name) {
 // ---------- rules ----------
 // Each rule gets ctx { code, stack, file } and returns indexes into code.
 
+// A Swift file that imports AppKit or Cocoa outside any #if, and never imports
+// UIKit, builds for macOS only: AppKit does not exist on iOS. macOS does not
+// support Dynamic Type for third-party apps, so a fixed size there is not a
+// tell. An import inside #if os(macOS) says nothing, since the rest of the
+// file may build for iOS.
+function macOnlySwift(code) {
+  const imports = /^[ \t]*(?:@\w+[ \t]+)*(?:(?:public|package|internal|fileprivate|private)[ \t]+)?import[ \t]+(?:(?:class|struct|enum|protocol|typealias|func|var|let)[ \t]+)?(\w+)/;
+  let depth = 0;
+  let appKit = false;
+  for (const line of code.split("\n")) {
+    if (/^[ \t]*#if\b/.test(line)) depth++;
+    else if (/^[ \t]*#endif\b/.test(line)) depth = Math.max(0, depth - 1);
+    const m = imports.exec(line);
+    if (!m) continue;
+    if (m[1] === "UIKit") return false;
+    if (depth === 0 && (m[1] === "AppKit" || m[1] === "Cocoa")) appKit = true;
+  }
+  return appKit;
+}
+
 function glowLayers(list) {
   const layers = [];
   let depth = 0;
@@ -573,7 +683,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...cssFunctionColors(stops), ...flutterColors(stops), ...swiftRgbColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
@@ -626,7 +736,8 @@ const rules = [
     find({ code, stack }) {
       const re = stack === "xml"
         ? /#(?:[fF]{2})?(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/
-        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4)\b|<HelloWave\b|<ParallaxScrollView\b/;
+        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4|646[cC][fF]{2}|535[bB][fF]2)\b|<HelloWave\b|<ParallaxScrollView\b/;
+      // #646cff / #535bf2 are create-vite's starter link and hover colors.
       // One finding per file, like drawer-nav: the default tint and the
       // starter-screen components are the same leftover.
       const first = matches(re, code).next();
@@ -852,6 +963,7 @@ const rules = [
     fix: "Use platform text styles (.body, MaterialTheme.typography, textTheme) or scale custom sizes (relativeTo:, UIFontMetrics, sp). Then check the screen at the largest size.",
     find({ code, stack }) {
       if (stack === "swift") {
+        if (macOnlySwift(code)) return [];
         const hits = [...matches(/\.system\(\s*size:|\.custom\(\s*"[^"]*"\s*,\s*size:\s*[\d.]+\s*\)/, code)].map((m) => m.index);
         if (!/UIFontMetrics|adjustsFontForContentSizeCategory/.test(code)) {
           for (const m of matches(/UIFont\.(?:systemFont|boldSystemFont)\(\s*ofSize:|UIFont\(\s*name:/, code)) hits.push(m.index);
@@ -1107,7 +1219,9 @@ const rules = [
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
         let top = m[0];
         walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
-        if (!/\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/.test(top)) continue;
+        // onClick/onclick (React, HTML), @click/v-on:click (Vue, Alpine), x-on:click (Alpine),
+        // on:click (Svelte) and (click) (Angular).
+        if (!/\s(?:(?:on[cC]lick|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
         // keyboard- and screen-reader-accessible when it has both an

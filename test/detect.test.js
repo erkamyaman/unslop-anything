@@ -90,6 +90,36 @@ test("safe-area-off flags .ignoresSafeArea(.all) forms, not backgrounds", () => 
   assert.deepStrictEqual(scanSource("VStack { }.ignoresSafeArea(edges: .top)", "a.swift"), []);
 });
 
+test("fixed-text-size skips Swift files that build for macOS only", () => {
+  const rulesOf = (src) => scanSource(src, "a.swift").filter((f) => f.rule === "fixed-text-size").map((f) => f.line);
+  const text = 'Text("Hi").font(.system(size: 13))\n';
+  // AppKit or Cocoa at the top level: the file cannot build for iOS.
+  assert.deepStrictEqual(rulesOf("import SwiftUI\nimport AppKit\n" + text), []);
+  assert.deepStrictEqual(rulesOf("import Cocoa\n" + text), []);
+  assert.deepStrictEqual(rulesOf("@preconcurrency import AppKit\n" + text), []);
+  assert.deepStrictEqual(rulesOf("import class AppKit.NSWorkspace\n" + text), []);
+  assert.deepStrictEqual(rulesOf("import AppKit.NSView\n" + text), []);
+  assert.deepStrictEqual(rulesOf("internal import AppKit\n" + text), []);
+  assert.deepStrictEqual(rulesOf("#if DEBUG\n#if os(macOS)\nlet x = 1\n#endif\n#endif\nimport AppKit\n" + text), []);
+  assert.deepStrictEqual(rulesOf("import AppKit\nlet f = NSFont.systemFont(ofSize: 13)\n" + text), []);
+  // No AppKit, or AppKit only inside #if: the file may build for iOS.
+  assert.deepStrictEqual(rulesOf("import SwiftUI\n" + text), [2]);
+  assert.deepStrictEqual(rulesOf("import SwiftUI\n#if os(macOS)\nimport AppKit\n#endif\n" + text), [5]);
+  assert.deepStrictEqual(rulesOf("#if canImport(AppKit)\nimport AppKit\n#else\nimport UIKit\n#endif\n" + text), [6]);
+  assert.deepStrictEqual(rulesOf("import SwiftUI\n#if os(iOS)\nlet x = 1\n#elseif os(macOS)\nimport AppKit\n#endif\n" + text), [7]);
+  assert.deepStrictEqual(rulesOf("#if DEBUG\n#if os(macOS)\n#endif\nimport AppKit\n#endif\n" + text), [6]);
+  // UIKit anywhere: the file may build for iOS.
+  assert.deepStrictEqual(rulesOf("import AppKit\nimport UIKit\n" + text), [3]);
+  assert.deepStrictEqual(rulesOf("import AppKit\npublic import UIKit\n" + text), [3]);
+  // A commented-out import does not count.
+  assert.deepStrictEqual(rulesOf("// import AppKit\n" + text), [2]);
+  // Other rules still run on macOS files.
+  const other = 'Text("🚀 Launch")\nScrollView { VStack { ForEach(items) { Row($0) } } }\n';
+  const expected = scanSource(other, "a.swift").map((f) => f.rule);
+  assert.ok(expected.length > 0);
+  assert.deepStrictEqual(scanSource("import AppKit\n" + other, "a.swift").map((f) => f.rule), expected);
+});
+
 test("commented-out code is ignored", () => {
   const src = '// <LinearGradient colors={["#7C3AED", "#EC4899"]} />\n/* Oops! Something went wrong */\n';
   assert.deepStrictEqual(scanSource(src, "a.tsx"), []);
@@ -564,6 +594,14 @@ test("slop-gradient reads Tailwind arbitrary hex stops (issue #143)", () => {
   assert.deepStrictEqual(lines('<div className={cn("after:content-[\')\']", "bg-gradient-to-r", "from-[#7c3aed]")} />\n', "Hero.tsx"), [1]);
   // A purple outside a gradient class string is not a stop.
   assert.deepStrictEqual(lines('<div class="bg-[#7c3aed] text-white">Hello</div>\n', "Hero.html"), []);
+});
+
+test("slop-gradient reads CSS named colors in the slop band (issue #163)", () => {
+  const rulesFor = (src) => scanSource(src, "a.css").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  for (const name of ["rebeccapurple", "mediumpurple", "blueviolet", "darkviolet", "darkorchid", "mediumorchid", "hotpink", "deeppink", "mediumvioletred", "RebeccaPurple"]) {
+    assert.deepStrictEqual(rulesFor(`.a { background: linear-gradient(${name}, white); }\n`), ["slop-gradient"], name);
+  }
+  assert.deepStrictEqual(rulesFor(".a { background: linear-gradient(skyblue, seagreen); }\n"), []);
 });
 
 test("slop-gradient reads only the gradient's own colors (issue #67)", () => {
@@ -1540,4 +1578,99 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
 test("keyboard-cover flags a bare TextInput with no scroll view", () => {
   const src = "<View>\n  <TextInput placeholder=\"Email\" />\n</View>\n";
   assert.deepStrictEqual(scanSource(src, "a.tsx").map((f) => f.rule), ["keyboard-cover"]);
+});
+
+test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () => {
+  const rulesFor = (src) => scanSource(src, "a.html").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor('<div class="card" (click)="open()">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<span (click) = "open()">x</span>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div class="card" x-on:click="open = true">Details</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div x-on:click.prevent="open = true">x</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" (click)="open()">Details</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" x-on:click="open = true">x</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<a href="/x" (click)="track()">x</a>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button (click)="open()">x</button>\n'), []);
+  assert.deepStrictEqual(rulesFor('<button x-on:click="open = true">x</button>\n'), []);
+});
+
+test("template-theme flags create-vite's #646cff and #535bf2", () => {
+  const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
+  assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a:hover { color: #535BF2; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646CFF; }\n"), ["template-theme"]);
+  assert.deepStrictEqual(rulesFor("a { color: #646cf0; }\n"), []);
+  assert.deepStrictEqual(rulesFor("a { color: #646cffaa; }\n"), []);
+});
+
+test("slop-gradient reads rgb() and hsl() stops", () => {
+  const rulesFor = (src) => scanSource(src, "a.css").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const flagged = [
+    ".a { background: linear-gradient(rgb(124, 58, 237), rgb(219, 39, 119)); }\n",
+    ".a { background: linear-gradient(to right, rgba(124, 58, 237, 0.8), #0ea5e9); }\n",
+    ".a { background: linear-gradient(rgb(124 58 237 / 50%), white); }\n",
+    ".a { background: linear-gradient(rgb(48.6% 22.7% 92.9%), white); }\n",
+    ".a { background: linear-gradient(hsl(262, 83%, 58%), white); }\n",
+    ".a { background: radial-gradient(hsla(262deg 83% 58% / 0.5), white); }\n",
+  ];
+  for (const src of flagged) assert.deepStrictEqual(rulesFor(src), ["slop-gradient"], src);
+  const quiet = [
+    ".a { background: linear-gradient(rgb(14, 165, 233), rgb(34, 197, 94)); }\n",
+    ".a { background: linear-gradient(hsl(199 89% 48%), hsl(142 71% 45%)); }\n",
+    ".a { background: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255)); }\n",
+  ];
+  for (const src of quiet) assert.deepStrictEqual(rulesFor(src), [], src);
+});
+
+test("slop-gradient reads Flutter Color.fromARGB and Color.fromRGBO stops (issue #161)", () => {
+  const rulesFor = (src) => scanSource(src, "hero.dart").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const gradient = (stops) => `Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [${stops}])))\n`;
+  const flagged = [
+    "Color.fromARGB(255, 124, 58, 237), Color.fromARGB(255, 219, 39, 119)",
+    "Color.fromRGBO(124, 58, 237, 1), Color.fromRGBO(219, 39, 119, 1)",
+    "const Color.fromRGBO(124, 58, 237, 0.8), Colors.white",
+    // Hex literals for the channels, and a trailing comma.
+    "Color.fromARGB(0xFF, 0x7C, 0x3A, 0xED,), Colors.white",
+    "Color.fromARGB(\n      255,\n      124,\n      58,\n      237,\n    ), Colors.white",
+    // The alpha or opacity can be any expression; only the channels are read.
+    "Color.fromRGBO(124, 58, 237, animation.value.clamp(0.0, 1.0)), Colors.white",
+    "Color.fromARGB((255 * t).round(), 124, 58, 237), Colors.white",
+  ];
+  for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
+  const quiet = [
+    "Color.fromARGB(255, 14, 165, 233), Color.fromARGB(255, 34, 197, 94)",
+    "Color.fromRGBO(14, 165, 233, 1), Color.fromRGBO(34, 197, 94, 1)",
+    // 255 here is the alpha, not a channel: (0, 0, 0) is black.
+    "Color.fromARGB(255, 0, 0, 0), Color.fromARGB(255, 255, 255, 255)",
+    // A channel that is not a literal cannot be read.
+    "Color.fromARGB(255, r, g, b), Color.fromRGBO(red, 58, 237, 1)",
+    "Color.fromRGBO(shade(124), 58, 237, 1), Colors.white",
+    // Flutter keeps the low eight bits of a channel: 256 is 0, so this is (0, 58, 237), a blue.
+    "Color.fromARGB(255, 256, 58, 237), Colors.white",
+  ];
+  for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
+});
+
+test("slop-gradient reads SwiftUI Color(red:green:blue:) stops (issue #162)", () => {
+  const rulesFor = (src) => scanSource(src, "Hero.swift").map((f) => f.rule).filter((r) => r === "slop-gradient");
+  const gradient = (stops) => `LinearGradient(colors: [${stops}], startPoint: .leading, endPoint: .trailing)\n`;
+  const flagged = [
+    "Color(red: 0.49, green: 0.23, blue: 0.93), Color(red: 0.86, green: 0.15, blue: 0.47)",
+    "Color(red: 0.49, green: 0.23, blue: 0.93, opacity: 0.8), .white",
+    "Color(.sRGB, red: 0.49, green: 0.23, blue: 0.93, opacity: 1), .white",
+    // Components written as a fraction of 255.
+    "Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255), .white",
+    "Color(red: 124.0/255.0, green: 58.0/255.0, blue: 237.0/255.0), .white",
+    // Swift also accepts an exponent.
+    "Color(red: 4.9e-1, green: 2.3e-1, blue: 9.3e-1), .white",
+    "Color(\n      red: 0.49,\n      green: 0.23,\n      blue: 0.93\n    ), .white",
+  ];
+  for (const stops of flagged) assert.deepStrictEqual(rulesFor(gradient(stops)), ["slop-gradient"], stops);
+  const quiet = [
+    "Color(red: 0.05, green: 0.65, blue: 0.91), Color(red: 0.13, green: 0.77, blue: 0.37)",
+    "Color(red: 14 / 255, green: 165 / 255, blue: 233 / 255), Color(red: 34 / 255, green: 197 / 255, blue: 94 / 255)",
+    "Color(red: 0, green: 0, blue: 0), Color(red: 1, green: 1, blue: 1)",
+    // A component that is not a number cannot be read.
+    "Color(red: r, green: g, blue: b), Color(red: tint.r, green: 0.23, blue: 0.93)",
+  ];
+  for (const stops of quiet) assert.deepStrictEqual(rulesFor(gradient(stops)), [], stops);
 });
