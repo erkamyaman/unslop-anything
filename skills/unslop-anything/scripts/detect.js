@@ -83,6 +83,41 @@ function hexColors(snippet, stack) {
   return out;
 }
 
+// rgb()/rgba() and hsl()/hsla() colors in a snippet, as uppercase hex, so they can
+// go through the same checks as hex stops. Commas or spaces both work
+// (`rgb(124, 58, 237)`, `rgb(124 58 237 / 50%)`, `hsl(262 83% 58%)`); alpha is ignored.
+function cssFunctionColors(snippet) {
+  const out = [];
+  const num = "([+-]?(?:\\d+\\.?\\d*|\\.\\d+))";
+  const re = new RegExp(`\\b(rgba?|hsla?)\\(\\s*${num}(%|deg)?\\s*[,\\s]\\s*${num}(%)?\\s*[,\\s]\\s*${num}(%)?`, "gi");
+  const hex2 = (v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0");
+  let m;
+  while ((m = re.exec(snippet))) {
+    const [, fn, a, , b, bPct, c, cPct] = m;
+    let r, g, bl;
+    if (fn[0].toLowerCase() === "r") {
+      const channel = (v, pct) => (pct ? (parseFloat(v) * 255) / 100 : parseFloat(v));
+      [r, g, bl] = [channel(a, m[3]), channel(b, bPct), channel(c, cPct)];
+    } else {
+      const h = (((parseFloat(a) % 360) + 360) % 360) / 360;
+      const sat = Math.min(1, Math.max(0, parseFloat(b) / 100));
+      const lig = Math.min(1, Math.max(0, parseFloat(c) / 100));
+      const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
+      const p = 2 * lig - q;
+      const hue = (t) => {
+        t = (t + 1) % 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      [r, g, bl] = [hue(h + 1 / 3) * 255, hue(h) * 255, hue(h - 1 / 3) * 255];
+    }
+    out.push((hex2(r) + hex2(g) + hex2(bl)).toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -575,7 +610,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...cssFunctionColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
@@ -628,7 +663,8 @@ const rules = [
     find({ code, stack }) {
       const re = stack === "xml"
         ? /#(?:[fF]{2})?(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/
-        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4)\b|<HelloWave\b|<ParallaxScrollView\b/;
+        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4|646[cC][fF]{2}|535[bB][fF]2)\b|<HelloWave\b|<ParallaxScrollView\b/;
+      // #646cff / #535bf2 are create-vite's starter link and hover colors.
       // One finding per file, like drawer-nav: the default tint and the
       // starter-screen components are the same leftover.
       const first = matches(re, code).next();
@@ -1110,7 +1146,9 @@ const rules = [
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
         let top = m[0];
         walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
-        if (!/\s(?:on[cC]lick|@click|v-on:click|on:click)(?:\.[\w-]+|\|\w+)*\s*=/.test(top)) continue;
+        // onClick/onclick (React, HTML), @click/v-on:click (Vue, Alpine), x-on:click (Alpine),
+        // on:click (Svelte) and (click) (Angular).
+        if (!/\s(?:(?:on[cC]lick|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
         // keyboard- and screen-reader-accessible when it has both an
