@@ -1257,6 +1257,24 @@ test("focus-removed treats Tailwind v4 outline-hidden like outline-none", () => 
   assert.deepStrictEqual(rulesFor('<input className="focus-visible:outline-hidden focus-visible:ring-2" />\n'), []);
 });
 
+test("focus-removed treats Tailwind's outline-0 like outline-none (issue #283)", () => {
+  const rulesFor = (src, file = "Search.tsx") => scanSource(src, file).map((f) => f.rule);
+  // Issue #283 repro:
+  assert.deepStrictEqual(rulesFor('export const Search = () => <input className="rounded-md border focus:outline-0" aria-label="Search" />;\n'), ["focus-removed"]);
+  assert.deepStrictEqual(rulesFor('<input className="outline-0" />\n'), ["focus-removed"]);
+  assert.deepStrictEqual(rulesFor('<input class="rounded border px-3 focus:outline-0" />\n', "Input.html"), ["focus-removed"]);
+  // A replacement focus style keeps it quiet; the outline-0 token itself is not one.
+  assert.deepStrictEqual(rulesFor('<input className="focus:outline-0 focus-visible:ring-2" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="outline-0 focus:ring-2" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="focus-visible:outline-0" />\n'), ["focus-removed"]);
+  assert.deepStrictEqual(rulesFor('<input className="focus-visible:outline-0 focus-visible:ring-2" />\n'), []);
+  // Other outline widths and the offset utilities do not remove the ring.
+  assert.deepStrictEqual(rulesFor('<input className="outline-2" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="outline-offset-0" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="outline outline-offset-2" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="focus:outline-2 focus:outline-offset-0" />\n'), []);
+});
+
 test("focus-removed flags outline: none and outline: 0 in JS/TS files (issue #225)", () => {
   const lines = (src, file = "Field.tsx") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "focus-removed").map((f) => f.line);
   // Issue #225 repro:
