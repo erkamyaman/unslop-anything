@@ -1209,6 +1209,10 @@ const rules = [
       const screenPath = /(?:^|\/)screens\//.test(where) || /Screen$/.test(name) || (/(?:^|\/)app\//.test(where) && !name.startsWith("_"));
       if (!screenPath && !/<(?:ScrollView|FlatList|FlashList|SafeAreaView|KeyboardAwareScrollView)\b/.test(code)) return [];
       if (/KeyboardAvoidingView|KeyboardAware|KeyboardProvider|KeyboardStickyView|KeyboardController|automaticallyAdjustKeyboardInsets|keyboardShouldPersistTaps/.test(code)) return [];
+      // A screen can also move itself with the keyboard through a hook: Reanimated's
+      // useAnimatedKeyboard, or useKeyboardHandler / useReanimatedKeyboardAnimation from
+      // react-native-keyboard-controller (#286). The hook has to be called, not just imported.
+      if (/\b(?:useAnimatedKeyboard|useKeyboardHandler|useReanimatedKeyboardAnimation)\s*\(/.test(code)) return [];
       return [input.index];
     },
   },

@@ -2294,6 +2294,52 @@ test("keyboard-cover flags a bare TextInput on a screen file, not in a reusable 
   assert.deepStrictEqual(rulesFor(handled, "app/login.tsx"), []);
 });
 
+test("keyboard-cover stays quiet when a screen calls a keyboard hook (issue #286)", () => {
+  const rulesFor = (src, file = "app/chat.tsx") => scanSource(src, file).filter((f) => f.rule === "keyboard-cover").map((f) => f.line);
+  // Issue #286 repro:
+  const repro = [
+    'import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-reanimated";',
+    'import { TextInput } from "react-native";',
+    "",
+    "export default function Chat() {",
+    "  const keyboard = useAnimatedKeyboard();",
+    "  const style = useAnimatedStyle(() => ({ paddingBottom: keyboard.height.value }));",
+    "  return (",
+    "    <Animated.View style={style}>",
+    '      <TextInput placeholder="Message" />',
+    "    </Animated.View>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(rulesFor(repro), []);
+
+  // The same screen without the hook is still flagged.
+  const bare = repro.replace("  const keyboard = useAnimatedKeyboard();\n", "").replace("keyboard.height.value", "0");
+  assert.deepStrictEqual(rulesFor(bare), [8]);
+
+  // react-native-keyboard-controller's hooks
+  const screen = (hookLine) => [
+    'import { TextInput, View } from "react-native";',
+    "",
+    "export default function Chat() {",
+    `  ${hookLine}`,
+    "  return (",
+    "    <View>",
+    '      <TextInput placeholder="Message" />',
+    "    </View>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(rulesFor(screen("useKeyboardHandler({ onMove: (e) => { height.value = e.height; } }, []);")), []);
+  assert.deepStrictEqual(rulesFor(screen("const { height } = useReanimatedKeyboardAnimation();")), []);
+  assert.deepStrictEqual(rulesFor(screen("const keyboard = useAnimatedKeyboard({ isStatusBarTranslucentAndroid: true });")), []);
+
+  // An import that is never called, another hook, or a longer name does not count.
+  assert.deepStrictEqual(rulesFor(screen("const insets = useSafeAreaInsets();")), [7]);
+  assert.deepStrictEqual(rulesFor('import { useAnimatedKeyboard } from "react-native-reanimated";\n' + screen("const n = 1;")), [8]);
+  assert.deepStrictEqual(rulesFor(screen("const k = useAnimatedKeyboardless();")), [7]);
+});
+
 test("clickable-div flags Angular (click) and Alpine x-on:click handlers", () => {
   const rulesFor = (src) => scanSource(src, "a.html").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor('<div class="card" (click)="open()">Details</div>\n'), ["clickable-div"]);
