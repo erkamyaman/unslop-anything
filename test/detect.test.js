@@ -1546,6 +1546,37 @@ test("img-no-alt flags Astro's Picture component without alt (issue #268)", () =
   assert.deepStrictEqual(altLines('<PictureFrame items={items} />\n'), []);
 });
 
+test("img-no-alt flags Gatsby's StaticImage and GatsbyImage without alt (issue #285)", () => {
+  const altLines = (src, file = "Hero.jsx") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  // Issue #285 repro: the tags are flagged, the import line is not.
+  const repro = [
+    'import { StaticImage, GatsbyImage } from "gatsby-plugin-image";',
+    "",
+    "export const Hero = ({ image }) => (",
+    "  <>",
+    '    <StaticImage src="../images/hero.png" />',
+    "    <GatsbyImage image={image} />",
+    "  </>",
+    ");",
+  ].join("\n");
+  assert.deepStrictEqual(altLines(repro), [5, 6]);
+  assert.deepStrictEqual(altLines(repro, "Hero.tsx"), [5, 6]);
+
+  // Alt forms stay quiet
+  for (const open of ['<StaticImage src="../images/hero.png"', "<GatsbyImage image={image}"]) {
+    assert.deepStrictEqual(altLines(`${open} alt="Hero" />\n`), [], open);
+    assert.deepStrictEqual(altLines(`${open} alt="" />\n`), [], open);
+    assert.deepStrictEqual(altLines(`${open} alt={title} />\n`), [], open);
+    assert.deepStrictEqual(altLines(`${open} {...props} />\n`), [], open);
+    // Other props do not stand in for alt
+    assert.deepStrictEqual(altLines(`${open} placeholder="blurred" layout="fullWidth" />\n`), [1], open);
+  }
+
+  // A component whose name only starts the same way stays quiet
+  assert.deepStrictEqual(altLines('<StaticImageGrid items={items} />\n'), []);
+  assert.deepStrictEqual(altLines('<GatsbyImageList items={items} />\n'), []);
+});
+
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's repro.
