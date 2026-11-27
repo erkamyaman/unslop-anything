@@ -2019,7 +2019,11 @@ test("drawer-nav catches Heroicons Bars3Icon, Tabler IconMenu2 and Ionic IonMenu
     assert.deepStrictEqual(lines(`<${icon} size={24} />\n`).map(([line]) => line), [1], icon);
   }
   assert.deepStrictEqual(lines('import Menu from "@mui/material/Menu";\n<Menu open={open} />\n'), []);
-  assert.deepStrictEqual(lines("<IonTabs><IonTabBar /></IonTabs>"), []); assert.deepStrictEqual(lines("<EllipsisVerticalIcon size={24} />\n"), []);
+  assert.deepStrictEqual(lines("<EllipsisVerticalIcon size={24} />\n"), []);
+  // Issue #248: Ionic React's IonMenu is reported on the tag, not the import.
+  const ionic = 'import { IonMenu, IonContent, IonList, IonItem } from "@ionic/react";\n\nexport function Menu() {\n  return (\n    <IonMenu contentId="main">\n      <IonContent />\n    </IonMenu>\n  );\n}\n';
+  assert.deepStrictEqual(lines(ionic, "App.tsx"), [[5, "noticeable"]]);
+  assert.deepStrictEqual(lines("<IonTabs>\n  <IonTabBar slot=\"bottom\" />\n</IonTabs>\n"), []);
 });
 
 test("drawer-nav catches React Native Paper's icon=\"menu\" (issue #226)", () => {
