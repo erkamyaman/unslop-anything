@@ -991,7 +991,8 @@ const rules = [
       if (stack === "js" || stack === "web") {
         // Vuetify's v-card, Angular Material's mat-card, Quasar's q-card and Element Plus's el-card nest like ion-card (#202, #228).
         // Naive UI's n-card and Ant Design Vue's a-card nest like ion-card too (#266).
-        for (const m of matches(/<(Card|IonCard|ion-card|VCard|v-card|mat-card|QCard|q-card|ElCard|el-card|NCard|n-card|ACard|a-card)(?=[\s/>])/, code)) {
+        // So does PrimeNG's p-card (#280).
+        for (const m of matches(/<(Card|IonCard|ion-card|VCard|v-card|mat-card|QCard|q-card|ElCard|el-card|NCard|n-card|ACard|a-card|p-card)(?=[\s/>])/, code)) {
           const end = tagEnd(code, m.index + m[0].length);
           if (end === -1) continue;
           if (/\/\s*$/.test(code.slice(m.index + m[0].length, end))) continue;

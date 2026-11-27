@@ -1423,6 +1423,30 @@ test("nested-cards flags Naive UI n-card and Ant Design Vue a-card nesting, not 
   assert.deepStrictEqual(cardLines(aCardPartsPascal), []);
 });
 
+test("nested-cards flags PrimeNG p-card nesting, not other p- tags inside one card (issue #280)", () => {
+  const cardLines = (src, file = "Plans.component.html") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "nested-cards").map((f) => [f.line, f.severity]);
+  // Issue #280 repro:
+  const repro = [
+    '<p-card header="Plans">',
+    '  <p-card header="Pro">Pro plan</p-card>',
+    "</p-card>",
+  ].join("\n");
+  assert.deepStrictEqual(cardLines(repro), [[1, "noticeable"]]);
+
+  // Without attributes, and with the inner card a few levels down
+  assert.deepStrictEqual(cardLines("<p-card>\n  <div>\n    <p-card>Pro plan</p-card>\n  </div>\n</p-card>\n"), [[1, "noticeable"]]);
+
+  // A single card, sibling cards and other PrimeNG tags inside one card stay quiet
+  assert.deepStrictEqual(cardLines('<p-card header="Pro">Pro plan</p-card>\n'), []);
+  assert.deepStrictEqual(cardLines('<p-card header="Pro">Pro</p-card>\n<p-card header="Team">Team</p-card>\n'), []);
+  assert.deepStrictEqual(cardLines('<p-card header="Pro">\n  <p-tag value="New" />\n  <p-button label="Buy" />\n</p-card>\n'), []);
+  // A longer tag that starts with p-card is not a card
+  assert.deepStrictEqual(cardLines("<p-card>\n  <p-cardlist>Plans</p-cardlist>\n</p-card>\n"), []);
+
+  // The existing cards keep working
+  assert.deepStrictEqual(cardLines("<mat-card>\n  <mat-card>Pro plan</mat-card>\n</mat-card>\n"), [[1, "noticeable"]]);
+});
+
 test("nested-cards reads opening tags with tagEnd so arrows or > in props do not misread sibling cards", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).filter((f) => f.rule === "nested-cards").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor("<Card onClick={() => open()} />\n<Card><p>Second</p></Card>\n"), []);
