@@ -2159,6 +2159,29 @@ test("glass-everywhere counts Tailwind backdrop-blur classes", () => {
   assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
 });
 
+test("glass-everywhere counts backdropFilter in JS style objects", () => {
+  // The repro from issue #288.
+  const flagged = [
+    'const glass = { backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.1)" };',
+    "export const Nav = () => <nav style={glass}>Nav</nav>;",
+    'export const Card = () => <div style={{ backdropFilter: "blur(16px)" }}>Card</div>;',
+    'export const Modal = () => <div style={{ backdropFilter: "blur(20px)" }}>Modal</div>;',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "Glass.tsx").map((f) => f.rule), ["glass-everywhere"]);
+
+  // Two blur surfaces are not enough.
+  const two = flagged.split("\n").slice(0, 3).join("\n");
+  assert.deepStrictEqual(scanSource(two, "Glass.tsx"), []);
+
+  // backdropFilter: "none" removes the blur, so it does not count toward the three.
+  const withNone = [
+    "<div style={{ backdropFilter: 'none' }}>a</div>",
+    '<div style={{ backdropFilter: "blur(16px)" }}>b</div>',
+    '<div style={{ backdropFilter: "blur(20px)" }}>c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
+});
+
 test("tracked-caps-label catches leading-dot Tailwind tracking and rem letter-spacing", () => {
   assert.deepStrictEqual(
     scanSource('<p className="uppercase tracking-[.2em]">Features</p>', "Eyebrow.tsx").map((f) => f.rule),

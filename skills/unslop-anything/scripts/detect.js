@@ -1024,8 +1024,9 @@ const rules = [
     find({ code }) {
       // Tailwind: backdrop-blur, backdrop-blur-<size> and backdrop-blur-[...]
       // count as blur surfaces. backdrop-blur-none removes the blur, so it
-      // does not count.
-      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)/, code)];
+      // does not count. backdropFilter in a JS style object counts the same
+      // way, except backdropFilter: "none".
+      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)|\bbackdropFilter\b(?!\s*:\s*["'`]none["'`])/, code)];
       return all.length >= 3 ? [all[0].index] : [];
     },
   },
