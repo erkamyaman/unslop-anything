@@ -1595,7 +1595,7 @@ test("glow-shadow skips inset accent bars with no blur (#111)", () => {
   );
 });
 
-test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () => {
+test("hover-scale flags Tailwind arbitrary scale values and translate-y lifts", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's example line, plus the group- prefix variant.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.03]">x</div>\n'), ["hover-scale"]);
@@ -1605,7 +1605,7 @@ test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () =
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.01]">x</div>\n'), []);
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[0.98]">x</div>\n'), []);
   // The named steps still work.
-  assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor('<div className="hover:-translate-y-px">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:-translate-y-[2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-[-2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="group-hover:-translate-y-px">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="group-hover:translate-y-[-2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-px">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-[2px]">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:-translate-x-1">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
 });
 
 test("hover-scale flags standalone CSS scale at 1.02 and above, not neutral, shrinking, or similarly named properties", () => {
