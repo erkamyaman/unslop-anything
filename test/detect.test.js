@@ -2102,6 +2102,33 @@ test("sparkle-icon flags Font Awesome's faSparkles and fa-sparkles (issue #267)"
   assert.deepStrictEqual(sparkleLines('<i className="fa-solid fa-wand-magic-sparkles" />\n'), [1]);
 });
 
+test("sparkle-icon flags Bootstrap Icons' BsStars and bi-stars, not the single rating star (issue #282)", () => {
+  const sparkleLines = (src, file = "Ask.tsx") => scanSource(src, file).filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+  // Issue #282 repro:
+  const repro = [
+    'import { BsStars } from "react-icons/bs";',
+    "",
+    "export const Ask = () => <button><BsStars /> Ask</button>;",
+    'export const Old = () => <i className="bi bi-stars" />;',
+  ].join("\n");
+  assert.deepStrictEqual(sparkleLines(repro), [1, 3, 4]);
+
+  // Plain HTML
+  assert.deepStrictEqual(sparkleLines('<i class="bi-stars"></i>\n', "index.html"), [1]);
+  assert.deepStrictEqual(sparkleLines('<i class="bi bi-stars fs-4"></i>\n', "index.html"), [1]);
+
+  // The single star used for ratings stays quiet
+  assert.deepStrictEqual(sparkleLines('import { BsStar, BsStarFill, BsStarHalf } from "react-icons/bs";\n'), []);
+  assert.deepStrictEqual(sparkleLines("const Rating = () => <><BsStarFill /><BsStarHalf /><BsStar /></>;\n"), []);
+  assert.deepStrictEqual(sparkleLines('<i className="bi bi-star" />\n'), []);
+  assert.deepStrictEqual(sparkleLines('<i className="bi bi-star-fill" />\n'), []);
+  assert.deepStrictEqual(sparkleLines('<i className="bi bi-star-half" />\n'), []);
+  // Longer names that only start the same way
+  assert.deepStrictEqual(sparkleLines("const BsStarsRow = () => null;\n"), []);
+  assert.deepStrictEqual(sparkleLines('<i className="bi-stars-row" />\n'), []);
+  assert.deepStrictEqual(sparkleLines('<i className="kbi-stars" />\n'), []);
+});
+
 test("blankComments keeps slashes inside Swift raw strings and still finds later symbols", () => {
   const src = [
     'let label = #"A "// B"#',

@@ -1045,7 +1045,7 @@ const rules = [
       // when the literal is exactly that symbol; substrings and apostrophes
       // inside longer text stay quiet.
       const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?|[a-z0-9-]+:sparkles?|i-[a-z0-9-]+-sparkles?|wand-magic-sparkles)$/;
-      const re = /\bauto_awesome\b|\bAutoAwesome(?:Outlined|Rounded|Sharp|TwoTone)?(?:Icon)?\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bRiSparkling(?:2)?(?:Fill|Line)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfa(?:WandMagic)?Sparkles\b|(?<![\w-])fa-(?:wand-magic-)?sparkles(?![\w-])|(?<![\w-])ri-sparkling(?:-2)?-(?:line|fill)(?![\w-])/;
+      const re = /\bauto_awesome\b|\bAutoAwesome(?:Outlined|Rounded|Sharp|TwoTone)?(?:Icon)?\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bRiSparkling(?:2)?(?:Fill|Line)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfa(?:WandMagic)?Sparkles\b|(?<![\w-])fa-(?:wand-magic-)?sparkles(?![\w-])|(?<![\w-])ri-sparkling(?:-2)?-(?:line|fill)(?![\w-])|\bBsStars\b|(?<![\w-])bi-stars(?![\w-])/;
       const hits = [...matches(re, code)].map((m) => m.index);
 
       for (const literal of stringLiterals(code, stack)) {
