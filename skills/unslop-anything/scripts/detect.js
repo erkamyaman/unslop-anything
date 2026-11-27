@@ -1310,7 +1310,7 @@ const rules = [
     message: "Cards that grow on hover.",
     fix: "Show hover with a quick color or surface change. Keep scale for a small press-down on buttons.",
     find({ code }) {
-      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|(?:&?:hover\s*|["']&?:hover["']\s*:\s*)\{[^}]*transform:\s*[^;}]*?\b(?:scale(?:3d)?\(\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\b|translateY\(\s*-\s*(?:\d*\.)?\d+|translate(?:3d)?\(\s*(?:[^,;()]|\([^()]*\))+,\s*-\s*(?:\d*\.)?\d+)|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b|:hover\s*\{[^}]*?(?<![\w-])translate\s*:\s*(?:[^\s;}()]|\([^()]*\))+\s+-\s*(?:\d*\.)?\d+|\bwhileHover=\{\s*\{[^}]*?\b(?:scale\s*:\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)|y\s*:\s*-\s*(?:\d*\.)?\d+)\b/, code)].map((m) => m.index);
+      return [...matches(/\b(?:group-)?hover:(?:-translate-y-(?:\d|px|\[[^\]]+\])|translate-y-\[-[^\]]+\]|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|(?:&?:hover\s*|["']&?:hover["']\s*:\s*)\{[^}]*transform:\s*[^;}]*?\b(?:scale(?:3d)?\(\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\b|translateY\(\s*-\s*(?:\d*\.)?\d+|translate(?:3d)?\(\s*(?:[^,;()]|\([^()]*\))+,\s*-\s*(?:\d*\.)?\d+)|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b|:hover\s*\{[^}]*?(?<![\w-])translate\s*:\s*(?:[^\s;}()]|\([^()]*\))+\s+-\s*(?:\d*\.)?\d+|\bwhileHover=\{\s*\{[^}]*?\b(?:scale\s*:\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)|y\s*:\s*-\s*(?:\d*\.)?\d+)\b/, code)].map((m) => m.index);
     },
   },
   {
