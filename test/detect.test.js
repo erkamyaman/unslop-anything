@@ -1138,12 +1138,12 @@ test("clickable-div flags a href-less anchor with onClick", () => {
   const findingsFor = (src) => scanSource(src, "a.tsx");
   const src = [
     "<a onClick={go}>Go</a>",
-    "<span onClick={go}>Go</span>",
+    "<span onClick={go}>Go</span>", "<tr onClick={go}><td>Go</td></tr>",
     '<a href="/docs" onClick={track}>Docs</a>',
     "",
   ].join("\n");
   const flagged = findingsFor(src).filter((f) => f.rule === "clickable-div").map((f) => f.line);
-  assert.deepStrictEqual(flagged, [1, 2]);
+  assert.deepStrictEqual(flagged, [1, 2, 3]);
   assert.deepStrictEqual(scanSource('<a :href="url" @click="track">Docs</a>\n', "a.vue"), []);
   // A button role with a tabIndex is the one escape hatch for anchors...
   assert.deepStrictEqual(findingsFor('<a onClick={go} role="button" tabIndex={0}>Go</a>\n'), []);
@@ -1152,20 +1152,20 @@ test("clickable-div flags a href-less anchor with onClick", () => {
   assert.deepStrictEqual(findingsFor('<a onClick={go} tabIndex={0}>Go</a>\n').map((f) => f.rule), ["clickable-div"]);
 });
 
-test("clickable-div requires both an interactive role and tabIndex on div/span/li/td/img", () => {
+test("clickable-div requires both an interactive role and tabIndex on div/span/li/td/tr/img", () => {
   const rulesFor = (src, file = "a.tsx") =>
     scanSource(src, file)
       .filter((f) => f.rule === "clickable-div")
       .map((f) => f.rule);
-  assert.deepStrictEqual(rulesFor('<div role="button" onClick={open}>Open</div>\n'), ["clickable-div"]);
+  assert.deepStrictEqual(rulesFor('<tr role="button" onClick={open}>Open</tr>'), ["clickable-div"]); assert.deepStrictEqual(rulesFor('<div role="button" onClick={open}>Open</div>\n'), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor('<div tabIndex={0} onClick={open}>Open</div>\n'), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor('<div role="presentation" tabIndex={0} onClick={open}>Open</div>\n'), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor('<div role="none" tabIndex={0} onClick={open}>Open</div>\n'), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor('<li role="listitem" tabIndex={0} onClick={open}>Open</li>\n'), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor('<img role="img" tabIndex={0} onClick={open} alt="Open" />\n'), ["clickable-div"]);
   // Interactive role + tabIndex stays quiet across JSX, Vue, and Svelte.
-  assert.deepStrictEqual(rulesFor('<div role="button" tabIndex={0} onClick={open}>Open</div>\n'), []);
-  assert.deepStrictEqual(rulesFor('<div role="button" :tabindex="0" @click="open">Open</div>\n', "A.vue"), []);
+  assert.deepStrictEqual(rulesFor('<tr role="button" tabIndex={0} onClick={open}>Open</tr>'), []); assert.deepStrictEqual(rulesFor('<TableRow onClick={open}>Open</TableRow>'), []); assert.deepStrictEqual(rulesFor('<tr><td>Open</td></tr>'), []); assert.deepStrictEqual(rulesFor('<div role="button" tabIndex={0} onClick={open}>Open</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<tr @click="open">Open</tr>', "A.vue"), ["clickable-div"]); assert.deepStrictEqual(rulesFor('<div role="button" :tabindex="0" @click="open">Open</div>\n', "A.vue"), []);
   assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" on:click={open}>Open</div>\n', "A.svelte"), []);
 });
 
