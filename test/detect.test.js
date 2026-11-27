@@ -2454,3 +2454,17 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("glow-shadow flags Tailwind sky shadows like shadow-sky-500/50 (issue #269)", () => {
+  const glowLines = (src, file = "Card.tsx") =>
+    scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "glow-shadow").map((f) => f.line);
+
+  // Flagged: sky and existing colored shadows
+  assert.deepStrictEqual(glowLines('export const Card = () => <div className="rounded-xl shadow-lg shadow-sky-500/50">Pro</div>;\n'), [1]);
+  assert.deepStrictEqual(glowLines('<div className="shadow-sky-400" />\n'), [1]);
+  assert.deepStrictEqual(glowLines('<div className="hover:shadow-sky-500" />\n'), [1]);
+  assert.deepStrictEqual(glowLines('<div className="shadow-blue-500/50" />\n'), [1]);
+
+  // Quiet: neutral Tailwind shadows
+  assert.deepStrictEqual(glowLines('<div className="shadow-slate-500/20 shadow-gray-900/10 shadow-black/5" />\n'), []);
+});

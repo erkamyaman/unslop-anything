@@ -826,7 +826,7 @@ function glowLayers(list) {
 function isGlowValue(value, stack) {
   if (!value) return false;
   if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000(?:000)?(?:[0-9a-f]{2})?\b|#000[0-9a-f]\b|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) return false;
-  const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
+  const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|sky|cyan|teal|mint|accentColor|accent)\b/i.test(value);
   const hex = hexColors(value, stack).some(isSaturated);
   const rgbRe = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/g;
   let rgbSat = false;
@@ -925,7 +925,7 @@ const rules = [
       const hits = [];
       // text-shadow is layered like box-shadow (#200); textShadowColor is React
       // Native's text glow (#201); a filter drop-shadow() is one shadow (#199).
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|\b(?:BoxShadow|Shadow)\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)|\b(?:box|text)Shadow\s*:\s*(?:"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`)/, code)) {
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|\b(?:BoxShadow|Shadow)\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|sky|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)|\b(?:box|text)Shadow\s*:\s*(?:"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`)/, code)) {
         const raw = m.slice(1).find(Boolean) || "";
         const layers = m[5] || m[7] || m[9] || m[10] || m[11] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
         if (layers.some((value) => isGlowValue(value, stack))) hits.push(m.index);
