@@ -1215,7 +1215,17 @@ const rules = [
       // useAnimatedKeyboard, or useKeyboardHandler / useReanimatedKeyboardAnimation from
       // react-native-keyboard-controller (#286). The hook has to be called, not just imported.
       if (/\b(?:useAnimatedKeyboard|useKeyboardHandler|useReanimatedKeyboardAnimation)\s*\(/.test(code)) return [];
-      return [input.index];
+      // react-native-avoid-softinput (#306): enabled app-wide through AvoidSoftInput.setEnabled(true),
+      // or each TextInput sits inside an <AvoidSoftInputView>. A bare import does not count.
+      if (/\bAvoidSoftInput\.setEnabled\(\s*true\s*\)/.test(code)) return [];
+      const wrappedAt = (at) => {
+        const open = code.lastIndexOf("<AvoidSoftInputView", at);
+        if (open < 0) return false;
+        const close = code.indexOf("</AvoidSoftInputView>", open);
+        return close !== -1 && close > at;
+      };
+      const bare = [...matches(/<TextInput\b/, code)].find((m) => !wrappedAt(m.index));
+      return bare ? [bare.index] : [];
     },
   },
   {
