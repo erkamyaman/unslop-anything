@@ -1217,12 +1217,18 @@ const rules = [
       if (/\b(?:useAnimatedKeyboard|useKeyboardHandler|useReanimatedKeyboardAnimation)\s*\(/.test(code)) return [];
       // react-native-avoid-softinput (#306): enabled app-wide through AvoidSoftInput.setEnabled(true),
       // or each TextInput sits inside an <AvoidSoftInputView>. A bare import does not count.
-      if (/\bAvoidSoftInput\.setEnabled\(\s*true\s*\)/.test(code)) return [];
+      if (/\bAvoidSoftInput\.setEnabled\s*\(\s*true\s*,?\s*\)/.test(code)) return [];
       const wrappedAt = (at) => {
-        const open = code.lastIndexOf("<AvoidSoftInputView", at);
-        if (open < 0) return false;
-        const close = code.indexOf("</AvoidSoftInputView>", open);
-        return close !== -1 && close > at;
+        let depth = 0;
+        for (const tag of matches(/<(\/?)AvoidSoftInputView\b([^>]*)>/, code)) {
+          if (tag.index >= at) break;
+          if (tag[1]) {
+            if (depth > 0) depth--;
+          } else if (!/\/\s*$/.test(tag[2])) {
+            depth++;
+          }
+        }
+        return depth > 0;
       };
       const bare = [...matches(/<TextInput\b/, code)].find((m) => !wrappedAt(m.index));
       return bare ? [bare.index] : [];
