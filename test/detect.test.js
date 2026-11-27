@@ -1619,6 +1619,31 @@ test("img-no-alt flags Gatsby's StaticImage and GatsbyImage without alt (issue #
   assert.deepStrictEqual(altLines('<GatsbyImageList items={items} />\n'), []);
 });
 
+test("img-no-alt flags SvelteKit's enhanced:img without alt (issue #304)", () => {
+  const altLines = (src, file = "Hero.svelte") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  // Issue #304 repro:
+  const repro = [
+    "<script>",
+    '  let title = "Hero";',
+    "</script>",
+    "",
+    '<enhanced:img src="./hero.png" />',
+  ].join("\n");
+  assert.deepStrictEqual(altLines(repro), [5]);
+
+  // Alt forms (including Svelte {alt} shorthand) stay quiet
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt={title} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {alt} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {...props} />\n'), []);
+
+  // Plain <img> still works and unrelated enhanced:* tags stay quiet
+  assert.deepStrictEqual(altLines('<img src="./hero.png" />\n'), [1]);
+  assert.deepStrictEqual(altLines('<img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img-wrapper src="./hero.png" />\n'), []);
+});
+
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's repro.
