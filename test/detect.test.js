@@ -1262,7 +1262,7 @@ test("focus-removed flags outline: none and outline: 0 in JS/TS files (issue #22
   assert.deepStrictEqual(lines('<input style={{ outline: "2px solid #2563eb" }} />\n'), []);
 });
 
-test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card", () => {
+test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card and PascalCase kit cards", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).map((f) => f.rule);
   // Issue #65: dotted subcomponents of a single card are not nested cards.
   assert.deepStrictEqual(rulesFor("<Card>\n  <Card.Title title=\"Hi\" />\n  <Card.Content><Text>x</Text></Card.Content>\n</Card>\n"), []);
@@ -1271,7 +1271,7 @@ test("nested-cards ignores dotted subcomponents and ion-card parts, still flags 
   // A compound tag name starting with Card is not a nested card either.
   assert.deepStrictEqual(rulesFor("<Card><CardHeader>x</CardHeader></Card>"), []);
   // A genuine nested card is still flagged.
-  assert.deepStrictEqual(rulesFor("<Card><Card><Text>x</Text></Card></Card>"), ["nested-cards"]);
+  assert.deepStrictEqual(rulesFor("<IonCard><IonCard><IonCardContent>Pro plan</IonCardContent></IonCard></IonCard>"), ["nested-cards"]); assert.deepStrictEqual(rulesFor("<VCard><VCard>Pro plan</VCard></VCard>"), ["nested-cards"]); assert.deepStrictEqual(rulesFor("<QCard><QCard>Pro plan</QCard></QCard>"), ["nested-cards"]); assert.deepStrictEqual(rulesFor("<ElCard><ElCard>Pro plan</ElCard></ElCard>"), ["nested-cards"]); assert.deepStrictEqual(rulesFor("<IonCard><IonCardContent>Pro plan</IonCardContent></IonCard>"), []); assert.deepStrictEqual(rulesFor("<IonCard><IonCardHeader>Pro</IonCardHeader></IonCard>"), []); assert.deepStrictEqual(rulesFor("<VCard><VCardText>Pro</VCardText></VCard>"), []); assert.deepStrictEqual(rulesFor("<QCard><QCardSection>Pro</QCardSection></QCard>"), []); assert.deepStrictEqual(rulesFor("<ElCard><ElCardBody>Pro</ElCardBody></ElCard>"), []); assert.deepStrictEqual(rulesFor("<Card><Card><Text>x</Text></Card></Card>"), ["nested-cards"]);
   assert.deepStrictEqual(rulesFor("<Card className=\"x\"><Card className=\"y\">z</Card></Card>"), ["nested-cards"]);
   assert.deepStrictEqual(rulesFor("<ion-card><ion-card></ion-card></ion-card>", "a.html"), ["nested-cards"]);
 });
