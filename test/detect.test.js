@@ -1851,6 +1851,37 @@ test("hover-scale flags Tailwind translate-y lifts written in px and arbitrary v
   assert.deepStrictEqual(lines('<div className="hover:-translate-y-1">x</div>\n'), [1]);
 });
 
+test("hover-scale flags lifts on Tailwind named groups like group-hover/card: (issue #287)", () => {
+  const lines = (src) => [...new Set(scanSource(src, "Cards.tsx").filter((f) => f.rule === "hover-scale").map((f) => f.line))];
+  // Issue #287 repro:
+  const repro = [
+    "export const Plan = () => (",
+    '  <div className="group/card rounded-xl border">',
+    '    <div className="transition group-hover/card:scale-105 group-hover/card:-translate-y-1">Pro</div>',
+    "  </div>",
+    ");",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [3]);
+
+  // Every lift the rule reads on group-hover:, with a plain and a dashed group name
+  for (const group of ["card", "plan-item", "item_2"]) {
+    for (const lift of ["scale-105", "scale-110", "scale-[1.03]", "-translate-y-1", "-translate-y-px", "-translate-y-[2px]", "translate-y-[-2px]"]) {
+      const cls = `group-hover/${group}:${lift}`;
+      assert.deepStrictEqual(lines(`<div className="${cls}">x</div>\n`), [1], cls);
+    }
+  }
+
+  // Not a lift: quiet on a named group too
+  for (const cls of ["group-hover/card:bg-gray-50", "group-hover/card:scale-100", "group-hover/card:scale-[1.01]", "group-hover/card:translate-y-px", "group-hover/card:-translate-x-1", "group/card"]) {
+    assert.deepStrictEqual(lines(`<div className="${cls}">x</div>\n`), [], cls);
+  }
+
+  // The existing hover: and group-hover: forms keep working
+  assert.deepStrictEqual(lines('<div className="hover:scale-105">x</div>\n'), [1]);
+  assert.deepStrictEqual(lines('<div className="group-hover:scale-105">x</div>\n'), [1]);
+  assert.deepStrictEqual(lines('<div className="group-hover:-translate-y-1">x</div>\n'), [1]);
+});
+
 test("hover-scale flags standalone CSS scale at 1.02 and above, not neutral, shrinking, or similarly named properties", () => {
   const rulesFor = (src) => scanSource(src, "a.css", { kind: "web" }).map((f) => f.rule);
   assert.deepStrictEqual(rulesFor(".card:hover { scale: 1.02; }\n"), ["hover-scale"]);
