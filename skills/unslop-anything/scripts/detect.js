@@ -318,6 +318,14 @@ function blankStrings(text) {
     let depth = templateDepth;
     for (let i = start; i < text.length;) {
       const c = text[i];
+      if (
+        c === "'" &&
+        /[A-Za-z]/.test(text[i - 1] || "") &&
+        /[A-Za-z]/.test(text[i + 1] || "")
+      ) {
+        i++;
+        continue;
+      }
       if (c === "'" || c === '"') { i = maskQuoted(i, c); continue; }
       if (c === "`") { i = maskTemplate(i); continue; }
       if (c === "/" && isRegexStart(text, i)) {
@@ -430,6 +438,7 @@ function isRegexStart(text, i) {
   let j = i - 1;
   while (j >= 0 && (text[j] === " " || text[j] === "\t")) j--;
   if (j < 0 || text[j] === "\n") return true;
+  if (text[j] === ">" && text[j - 1] === "=") return true;
   // Not after <, > or }: those are JSX closing tags and text such as {a}/{b}.
   if ("(,=:[!&|?{;+-*%~^".includes(text[j])) return true;
   return /\b(?:return|typeof|case|do|else|in|of|void|yield|await)$/.test(text.slice(Math.max(0, j - 6), j + 1));

@@ -2524,6 +2524,14 @@ test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)",
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = "AvoidSoftInput.setEnabled(true)";')), [8]);
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `literal AvoidSoftInput.setEnabled(true)`;')), [8]);
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `call ${AvoidSoftInput.setEnabled(true)}`;')), []);
+  assert.deepStrictEqual(
+    rulesFor(`export default () => <View><Text>Don't forget</Text><TextInput /></View>;`),
+    [1],
+  );
+  assert.deepStrictEqual(
+    rulesFor(`const example = () => /AvoidSoftInput.setEnabled(true)/;\nexport default () => <TextInput />;`),
+    [2],
+  );
   // Imported but never used: still flagged
   assert.deepStrictEqual(rulesFor(screen(avoid, "")), [7]);
   // Nested wrappers still cover inputs after the inner wrapper closes.
