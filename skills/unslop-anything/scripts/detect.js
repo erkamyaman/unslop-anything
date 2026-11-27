@@ -85,21 +85,23 @@ function hexColors(snippet, stack) {
 
 // rgb()/rgba() and hsl()/hsla() colors in a snippet, as uppercase hex, so they can
 // go through the same checks as hex stops. Commas or spaces both work
-// (`rgb(124, 58, 237)`, `rgb(124 58 237 / 50%)`, `hsl(262 83% 58%)`); alpha is ignored.
+// (`rgb(124, 58, 237)`, `rgb(124 58 237 / 50%)`, `hsl(262 83% 58%)`, or Tailwind
+// `rgb(124_58_237)`); alpha is ignored.
 function cssFunctionColors(snippet) {
   const out = [];
   const num = "([+-]?(?:\\d+\\.?\\d*|\\.\\d+))";
-  const re = new RegExp(`\\b(rgba?|hsla?)\\(\\s*${num}(%|deg)?\\s*[,\\s]\\s*${num}(%)?\\s*[,\\s]\\s*${num}(%)?`, "gi");
+  const re = new RegExp(`\\b(rgba?|hsla?)\\(\\s*${num}(%|deg|grad|rad|turn)?\\s*[,\\s_]\\s*${num}(%)?\\s*[,\\s_]\\s*${num}(%)?`, "gi");
   const hex2 = (v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0");
   let m;
   while ((m = re.exec(snippet))) {
-    const [, fn, a, , b, bPct, c, cPct] = m;
+    const [, fn, a, aUnit, b, bPct, c, cPct] = m;
     let r, g, bl;
     if (fn[0].toLowerCase() === "r") {
       const channel = (v, pct) => (pct ? (parseFloat(v) * 255) / 100 : parseFloat(v));
-      [r, g, bl] = [channel(a, m[3]), channel(b, bPct), channel(c, cPct)];
+      [r, g, bl] = [channel(a, aUnit === "%"), channel(b, bPct), channel(c, cPct)];
     } else {
-      const h = (((parseFloat(a) % 360) + 360) % 360) / 360;
+      const toDeg = { turn: 360, rad: 180 / Math.PI, grad: 0.9 }[(aUnit || "").toLowerCase()] || 1;
+      const h = ((((parseFloat(a) * toDeg) % 360) + 360) % 360) / 360;
       const sat = Math.min(1, Math.max(0, parseFloat(b) / 100));
       const lig = Math.min(1, Math.max(0, parseFloat(c) / 100));
       const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
@@ -171,6 +173,31 @@ function swiftRgbColors(snippet) {
   return out;
 }
 
+// Jetpack Compose's Color(red = ..., green = ..., blue = ...) in a snippet,
+// as uppercase hex, so it goes through the same checks as Color(0xFF7C3AED).
+// Components may be ints (0 to 255) or floats (0 to 1, typically ending in f).
+// A trailing alpha is skipped; a component that is not a number skips the color.
+function composeColors(snippet) {
+  const out = [];
+  const number = "(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][+-]?\\d+)?[fF]?";
+  const re = new RegExp(`\\bColor\\(\\s*red\\s*=\\s*(${number})\\s*,\\s*green\\s*=\\s*(${number})\\s*,\\s*blue\\s*=\\s*(${number})\\s*[,)]`, "g");
+  let m;
+  while ((m = re.exec(snippet))) {
+    const raw = [m[1], m[2], m[3]];
+    const isFloat = raw.some((c) => /[.fF]/.test(c));
+    const hex = raw.map((c) => {
+      const num = parseFloat(c);
+      if (Number.isNaN(num)) return null;
+      if (isFloat) {
+        return Math.round(Math.min(1, Math.max(0, num)) * 255).toString(16).padStart(2, "0");
+      }
+      return Math.round(Math.min(255, Math.max(0, num))).toString(16).padStart(2, "0");
+    });
+    if (hex.every(Boolean)) out.push(hex.join("").toUpperCase());
+  }
+  return out;
+}
+
 // The purple, indigo, violet and hot-pink band that default AI palettes live in.
 function isSlopHue(hex) {
   const { h, s, l } = hexToHsl(hex);
@@ -183,8 +210,9 @@ function isSaturated(hex) {
 }
 
 // Also the CSS named colors in that band (rebeccapurple, hotpink, ...), which a
-// plain \bpurple\b or \bpink\b does not reach.
-const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|rebeccapurple|mediumpurple|blueviolet|darkviolet|darkorchid|mediumorchid|hotpink|deeppink|mediumvioletred)\b/i;
+// plain \bpurple\b or \bpink\b does not reach, UIKit system colors (.systemPurple, ...)
+// and Flutter accent swatches (Colors.purpleAccent, ...).
+const SLOP_COLOR_NAME = /(?:\.|Colors\.|Color\.|\b)(?:system)?(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|rebeccapurple|mediumpurple|blueviolet|darkviolet|darkorchid|mediumorchid|hotpink|deeppink|mediumvioletred)(?:Accent)?\b/i;
 
 // Replace comments with spaces, keeping offsets and newlines, so rules never
 // match commented-out code. Strings are kept.
@@ -645,6 +673,136 @@ function macOnlySwift(code) {
   return appKit;
 }
 
+function matchOpenBackward(code, closeIdx, openCh, closeCh) {
+  let depth = 0;
+  for (let i = closeIdx; i >= 0; i--) {
+    const c = code[i];
+    if (c === '"') {
+      i--;
+      while (i >= 0) {
+        if (code[i] === '"') {
+          let slashes = 0;
+          while (i - 1 - slashes >= 0 && code[i - 1 - slashes] === "\\") slashes++;
+          if (slashes % 2 === 0) break;
+        }
+        i--;
+      }
+      continue;
+    }
+    if (c === closeCh) depth++;
+    else if (c === openCh && --depth === 0) return i;
+  }
+  return -1;
+}
+
+// True when the `.ignoresSafeArea` / `.edgesIgnoringSafeArea` at `index` sits
+// on a background/decorative view (even across a multi-line call or modifier
+// chain) or directly inside a `.background(...)` / `.background { ... }`.
+function isBackgroundSafeArea(code, index) {
+  const BG_CONSTRUCTOR = /^(?:Color|\w*Image|Rectangle|Divider|\w*Gradient)$/;
+  // 1) Directly inside a still-open `.background(` or `.background {`.
+  const limit = Math.max(0, index - 4000);
+  let pDepth = 0;
+  let bDepth = 0;
+  for (let i = index - 1; i >= limit; i--) {
+    const c = code[i];
+    if (c === '"') {
+      i--;
+      while (i >= limit) {
+        if (code[i] === '"') {
+          let slashes = 0;
+          while (i - 1 - slashes >= 0 && code[i - 1 - slashes] === "\\") slashes++;
+          if (slashes % 2 === 0) break;
+        }
+        i--;
+      }
+      continue;
+    }
+    if (c === ")") pDepth++;
+    else if (c === "(") {
+      if (pDepth > 0) pDepth--;
+      else {
+        if (/\.background\s*$/.test(code.slice(Math.max(0, i - 32), i))) return true;
+        break;
+      }
+    } else if (c === "}") bDepth++;
+    else if (c === "{") {
+      if (bDepth > 0) bDepth--;
+      else {
+        let head = i - 1;
+        while (head >= 0 && /\s/.test(code[head])) head--;
+        if (head >= 0 && code[head] === ")") {
+          const open = matchOpenBackward(code, head, "(", ")");
+          if (open !== -1) head = open - 1;
+        }
+        if (/\.background\s*$/.test(code.slice(Math.max(0, head - 31), head + 1))) return true;
+        break;
+      }
+    }
+  }
+  // 2) Walk backwards through the receiver's modifier chain to its root view.
+  let i = index - 1;
+  while (i >= 0) {
+    while (i >= 0 && /[\s?!]/.test(code[i])) i--;
+    if (i < 0) return false;
+    if (code[i] === ")") {
+      const open = matchOpenBackward(code, i, "(", ")");
+      if (open === -1) return false;
+      let end = open - 1;
+      while (end >= 0 && /\s/.test(code[end])) end--;
+      let start = end;
+      while (start >= 0 && /\w/.test(code[start])) start--;
+      const name = code.slice(start + 1, end + 1);
+      if (BG_CONSTRUCTOR.test(name)) return true;
+      let dot = start;
+      while (dot >= 0 && /\s/.test(code[dot])) dot--;
+      if (dot >= 0 && code[dot] === ".") {
+        i = dot - 1;
+        continue;
+      }
+      return /background|Gradient/.test(name);
+    }
+    if (code[i] === "}") {
+      const open = matchOpenBackward(code, i, "{", "}");
+      if (open === -1) return false;
+      let head = open - 1;
+      while (head >= 0 && /\s/.test(code[head])) head--;
+      if (head >= 0 && code[head] === ")") {
+        const pOpen = matchOpenBackward(code, head, "(", ")");
+        if (pOpen === -1) return false;
+        head = pOpen - 1;
+        while (head >= 0 && /\s/.test(code[head])) head--;
+      }
+      let start = head;
+      while (start >= 0 && /\w/.test(code[start])) start--;
+      let dot = start;
+      while (dot >= 0 && /\s/.test(code[dot])) dot--;
+      if (dot >= 0 && code[dot] === ".") {
+        i = dot - 1;
+        continue;
+      }
+      return false;
+    }
+    if (/\w/.test(code[i])) {
+      let cur = i;
+      while (cur >= 0 && /\w/.test(code[cur])) {
+        let start = cur;
+        while (start >= 0 && /\w/.test(code[start])) start--;
+        const name = code.slice(start + 1, cur + 1);
+        if (BG_CONSTRUCTOR.test(name) || /background|Gradient/.test(name)) return true;
+        let dot = start;
+        while (dot >= 0 && /\s/.test(code[dot])) dot--;
+        if (dot < 0 || code[dot] !== ".") break;
+        cur = dot - 1;
+        while (cur >= 0 && /[\s?!]/.test(code[cur])) cur--;
+      }
+      return false;
+    }
+    return false;
+  }
+  return false;
+}
+
 function glowLayers(list) {
   const layers = [];
   let depth = 0;
@@ -658,13 +816,25 @@ function glowLayers(list) {
       start = i + 1;
     }
   }
-  return layers
-    .filter((layer) => {
-      if (!/\binset\b/.test(layer)) return true;
-      const lengths = layer.replace(/[a-z]+\([^)]*\)|#[0-9a-f]+/gi, " ").match(/-?\d*\.?\d+(?:px|rem|em)?\b/g) || [];
-      return lengths.length >= 3 && parseFloat(lengths[2]) > 0;
-    })
-    .join(",");
+  return layers.filter((layer) => {
+    if (!/\binset\b/.test(layer)) return true;
+    const lengths = layer.replace(/[a-z]+\([^)]*\)|#[0-9a-f]+/gi, " ").match(/-?\d*\.?\d+(?:px|rem|em)?\b/g) || [];
+    return lengths.length >= 3 && parseFloat(lengths[2]) > 0;
+  });
+}
+
+function isGlowValue(value, stack) {
+  if (!value) return false;
+  if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000(?:000)?(?:[0-9a-f]{2})?\b|#000[0-9a-f]\b|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) return false;
+  const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
+  const hex = hexColors(value, stack).some(isSaturated);
+  const rgbRe = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/g;
+  let rgbSat = false;
+  let rgb;
+  while ((rgb = rgbRe.exec(value))) {
+    if (Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60) { rgbSat = true; break; }
+  }
+  return named || hex || rgbSat;
 }
 
 const rules = [
@@ -683,7 +853,7 @@ const rules = [
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
         // Only the gradient's own stops count, not whatever follows it.
         const stops = gradientScope(code, m.index, m[0]);
-        if ([...hexColors(stops, stack), ...cssFunctionColors(stops), ...flutterColors(stops), ...swiftRgbColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
+        if ([...hexColors(stops, stack), ...cssFunctionColors(stops), ...flutterColors(stops), ...swiftRgbColors(stops), ...composeColors(stops)].some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
@@ -699,9 +869,9 @@ const rules = [
             break;
           }
         }
-        // Arbitrary stops carry the color itself: from-[#7c3aed] to-[#db2777].
-        const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[(#[0-9a-fA-F]{3,8})\]/g)].map((s) => s[1]).join(" ");
-        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(scope) || hexColors(arbitrary, stack).some(isSlopHue)) hits.push(m.index);
+        // Arbitrary stops carry the color itself: from-[#7c3aed], from-[rgb(...)], from-[hsl(...)].
+        const arbitrary = [...scope.matchAll(/\b(?:from|via|to)-\[([^\]]+)\]/g)].map((s) => s[1].replace(/_/g, " ")).join(" ");
+        if (/\b(?:from|via|to)-(?:purple|violet|indigo|fuchsia|pink)-\d{2,3}\b/.test(scope) || [...hexColors(arbitrary, stack), ...cssFunctionColors(arbitrary)].some(isSlopHue)) hits.push(m.index);
       }
       return hits;
     },
@@ -753,20 +923,12 @@ const rules = [
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
     find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
+      // text-shadow is layered like box-shadow (#200); textShadowColor is React
+      // Native's text glow (#201); a filter drop-shadow() is one shadow (#199).
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|\b(?:BoxShadow|Shadow)\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)|\b(?:box|text)Shadow\s*:\s*(?:"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`)/, code)) {
         const raw = m.slice(1).find(Boolean) || "";
-        const value = m[5] || m[7] ? glowLayers(raw.replace(/_/g, " ")) : raw;
-        if (!value) continue;
-        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000(?:000)?(?:[0-9a-f]{2})?\b|#000[0-9a-f]\b|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
-        const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
-        const hex = hexColors(value, stack).some(isSaturated);
-        const rgbRe = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/g;
-        let rgbSat = false;
-        let rgb;
-        while ((rgb = rgbRe.exec(value))) {
-          if (Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60) { rgbSat = true; break; }
-        }
-        if (named || hex || rgbSat) hits.push(m.index);
+        const layers = m[5] || m[7] || m[9] || m[10] || m[11] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
+        if (layers.some((value) => isGlowValue(value, stack))) hits.push(m.index);
       }
       return hits;
     },
@@ -827,12 +989,15 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       if (stack === "js" || stack === "web") {
-        for (const m of matches(/<(Card|ion-card)(?=[\s/>])[^>]*?(\/?)>/, code)) {
-          if (m[2] === "/") continue;
+        // Vuetify's v-card, Angular Material's mat-card, Quasar's q-card and Element Plus's el-card nest like ion-card (#202, #228).
+        for (const m of matches(/<(Card|IonCard|ion-card|VCard|v-card|mat-card|QCard|q-card|ElCard|el-card)(?=[\s/>])/, code)) {
+          const end = tagEnd(code, m.index + m[0].length);
+          if (end === -1) continue;
+          if (/\/\s*$/.test(code.slice(m.index + m[0].length, end))) continue;
           const tag = m[1];
-          const close = code.indexOf(`</${tag}>`, m.index);
+          const close = code.indexOf(`</${tag}>`, end + 1);
           if (close === -1) continue;
-          const inner = code.slice(m.index + m[0].length, close);
+          const inner = code.slice(end + 1, close);
           if (new RegExp(`<${tag}(?=[\\s/>])`).test(inner)) hits.push(m.index);
         }
       } else {
@@ -873,12 +1038,13 @@ const rules = [
     find({ code, stack }) {
       // SF Symbols are often derived from "sparkle"/"sparkles" or
       // "wand.and.stars"/"wand.and.sparkles", for example
-      // "sparkles.rectangle.stack" and "wand.and.stars.inverse". Check the
-      // complete string literal so a quoted symbol is only flagged when the
-      // literal is exactly that symbol; substrings and apostrophes inside
-      // longer text stay quiet.
-      const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?)$/;
-      const re = /\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨/;
+      // "sparkles.rectangle.stack" and "wand.and.stars.inverse". Iconify
+      // names take the form "<set>:sparkles?" or the Nuxt "i-<set>-sparkles?".
+      // Check the complete string literal so a quoted symbol is only flagged
+      // when the literal is exactly that symbol; substrings and apostrophes
+      // inside longer text stay quiet.
+      const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?|[a-z0-9-]+:sparkles?|i-[a-z0-9-]+-sparkles?|wand-magic-sparkles)$/;
+      const re = /\bauto_awesome\b|\bAutoAwesome(?:Outlined|Rounded|Sharp|TwoTone)?(?:Icon)?\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bRiSparkling(?:2)?(?:Fill|Line)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfaWandMagicSparkles\b|(?<![\w-])fa-wand-magic-sparkles(?![\w-])|(?<![\w-])ri-sparkling(?:-2)?-(?:line|fill)(?![\w-])/;
       const hits = [...matches(re, code)].map((m) => m.index);
 
       for (const literal of stringLiterals(code, stack)) {
@@ -920,12 +1086,16 @@ const rules = [
       const hits = [];
       if (stack === "js") {
         for (const m of matches(/(?<![\w.])<(?:Animated\.)?ScrollView\b/, code)) {
-          const end = code.slice(m.index).search(/<\/(?:Animated\.)?ScrollView>/);
-          if (end === -1) continue;
-          const body = code.slice(m.index, m.index + end);
+          const openEnd = tagEnd(code, m.index + m[0].length);
+          if (openEnd === -1) continue;
+          if (/\/\s*$/.test(code.slice(m.index + m[0].length, openEnd))) continue;
+          const rest = code.slice(openEnd + 1);
+          const closeRel = rest.search(/<\/(?:Animated\.)?ScrollView>/);
+          if (closeRel === -1) continue;
           // Horizontal scrollers are usually short chip rows and carousels.
-          const props = body.slice(0, body.indexOf(">") + 1);
+          const props = code.slice(m.index, openEnd + 1);
           if (/\bhorizontal\b(?!\s*=\s*\{\s*false\s*\})/.test(props)) continue;
+          const body = rest.slice(0, closeRel);
           if (/\.map\(/.test(body)) hits.push(m.index);
         }
       }
@@ -1005,7 +1175,7 @@ const rules = [
     message: "Hamburger menu or navigation drawer. It hides the top destinations behind a tap.",
     fix: "Ask first. Use tabs for three to five peer destinations; keep a drawer only for many destinations or a large-screen rail.",
     find({ code }) {
-      const re = /["']line\.(?:3\.horizontal|horizontal\.3)["']|\bIcons\.(?:Default\.|Filled\.|Outlined\.|Rounded\.|Sharp\.)?Menu\b|\bIcons\.menu(?:_rounded|_outlined|_sharp)?\b|name=["']menu(?:-outline|-sharp)?["']|\bcreateDrawerNavigator\b|from\s+["']expo-router\/drawer["']|\bModalNavigationDrawer\b|\bdrawer:\s*(?:const\s+)?\w*Drawer\b|<ion-menu\b/;
+      const re = /["']line\.(?:3\.horizontal|horizontal\.3)["']|\bIcons\.(?:Default\.|Filled\.|Outlined\.|Rounded\.|Sharp\.)?Menu\b|\bIcons\.menu(?:_rounded|_outlined|_sharp)?\b|\b(?:name|icon)=["']menu(?:-outline|-sharp)?["']|\bcreateDrawerNavigator\b|from\s+["']expo-router\/drawer["']|\bModalNavigationDrawer\b|\bdrawer:\s*(?:const\s+)?\w*Drawer\b|<ion-menu\b|<IonMenu(?:Button)?\b|\bBars3(?:BottomLeft|BottomRight|CenterLeft)?Icon\b|\bIconMenu2\b/;
       const first = matches(re, code).next();
       return first.done ? [] : [first.value.index];
     },
@@ -1047,8 +1217,7 @@ const rules = [
     find({ code }) {
       const hits = [];
       for (const m of matches(/\.ignoresSafeArea\(\s*(?:\.(?:all|container)\s*)?(?:,?\s*edges:\s*\.all\s*)?\)|\.edgesIgnoringSafeArea\(\s*\.all\s*\)/, code)) {
-        const lineStart = code.lastIndexOf("\n", m.index) + 1;
-        if (/background|Color\(|Color\.|Image\(|Gradient|Rectangle\(\)|Divider\(\)/.test(code.slice(lineStart, m.index))) continue;
+        if (isBackgroundSafeArea(code, m.index)) continue;
         hits.push(m.index);
       }
       return hits;
@@ -1128,7 +1297,7 @@ const rules = [
       // A shorthand whose first layer names no property (`transition: .3s
       // ease`, `transition: ease-in 200ms`) defaults to `all` as well; the
       // whole layer must be timing values, so `.2s opacity` stays quiet.
-      const first = matches(/\btransition-all\b|transition(?:-property)?:\s*["'`]?[^;{}"'`]*?(?<![\w-])all(?![\w-])|(?<![\w-])transition:\s*["'`]?\s*(?:(?:ease(?:-in-out|-in|-out)?|linear(?:\([^)]*\))?|step-start|step-end|(?:cubic-bezier|steps)\([^)]*\)|allow-discrete|normal)\s+)*\d*\.?\d+m?s\b(?:\s+(?:(?:ease(?:-in-out|-in|-out)?|linear(?:\([^)]*\))?|step-start|step-end|(?:cubic-bezier|steps)\([^)]*\)|allow-discrete|normal)|\d*\.?\d+m?s\b))*\s*(?=[,;}"'`\n]|$)/, code).next();
+      const first = matches(/\btransition-all\b|transition(?:-property|Property)?:\s*["'`]?[^;{}"'`]*?(?<![\w-])all(?![\w-])|(?<![\w-])transition:\s*["'`]?\s*(?:(?:ease(?:-in-out|-in|-out)?|linear(?:\([^)]*\))?|step-start|step-end|(?:cubic-bezier|steps)\([^)]*\)|allow-discrete|normal)\s+)*\d*\.?\d+m?s\b(?:\s+(?:(?:ease(?:-in-out|-in|-out)?|linear(?:\([^)]*\))?|step-start|step-end|(?:cubic-bezier|steps)\([^)]*\)|allow-discrete|normal)|\d*\.?\d+m?s\b))*\s*(?=[,;}"'`\n]|$)/, code).next();
       return first.done ? [] : [first.value.index];
     },
   },
@@ -1140,7 +1309,7 @@ const rules = [
     message: "Cards that grow on hover.",
     fix: "Show hover with a quick color or surface change. Keep scale for a small press-down on buttons.",
     find({ code }) {
-      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|:hover\s*\{[^}]*transform:\s*scale\(1\.(?:0[2-9]|[1-9])|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b/, code)].map((m) => m.index);
+      return [...matches(/\b(?:group-)?hover:(?:-translate-y-(?:\d|px|\[[^\]]+\])|translate-y-\[-[^\]]+\]|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|(?:&?:hover\s*|["']&?:hover["']\s*:\s*)\{[^}]*transform:\s*[^;}]*?\b(?:scale(?:3d)?\(\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\b|translateY\(\s*-\s*(?:\d*\.)?\d+|translate(?:3d)?\(\s*(?:[^,;()]|\([^()]*\))+,\s*-\s*(?:\d*\.)?\d+)|:hover\s*\{[^}]*?(?<![\w-])scale\s*:\s*(?:1\.0[2-9]\d*|1\.[1-9]\d*)\b|:hover\s*\{[^}]*?(?<![\w-])translate\s*:\s*(?:[^\s;}()]|\([^()]*\))+\s+-\s*(?:\d*\.)?\d+|\bwhileHover=\{\s*\{[^}]*?\b(?:scale\s*:\s*(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)|y\s*:\s*-\s*(?:\d*\.)?\d+)\b/, code)].map((m) => m.index);
     },
   },
   {
@@ -1207,21 +1376,21 @@ const rules = [
     family: "accessibility",
     severity: "noticeable",
     stacks: ["js", "web"],
-    message: "Click handler on a div or span. Keyboard and screen reader users cannot reach it.",
+    message: "Click handler on a non-interactive element such as a div, span or article. Keyboard and screen reader users cannot reach it.",
     fix: "Use a <button> for actions and an <a href> for navigation. They come with focus, Enter and Space, and the right role.",
     find({ code }) {
       const hits = [];
       // Each opening tag is read to its real end first, so an arrow function in an earlier
       // attribute (`onKeyDown={(e) => ...}`) does not hide the click handler after it.
-      for (const m of matches(/<(?:div|span|li|td|img|a)\b/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|tr|img|a|article|section)\b/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
         let top = m[0];
         walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
-        // onClick/onclick (React, HTML), @click/v-on:click (Vue, Alpine), x-on:click (Alpine),
-        // on:click (Svelte) and (click) (Angular).
-        if (!/\s(?:(?:on[cC]lick|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
+        // onClick/onclick (React, HTML), onClick$ (Qwik), @click/v-on:click (Vue, Alpine),
+        // x-on:click (Alpine), on:click (Svelte) and (click) (Angular).
+        if (!/\s(?:(?:on[cC]lick\$?|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
         if (/^<a\b/.test(tag) && /(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
         // A non-semantic clickable element (or href-less anchor) is only
         // keyboard- and screen-reader-accessible when it has both an
@@ -1256,8 +1425,11 @@ const rules = [
         if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(withoutMatch)) continue;
         hits.push(m.index);
       }
-      if ((stack === "css" || stack === "web") && !/focus-visible/.test(code)) {
-        for (const m of matches(/outline:\s*(?:none|0)\b/, code)) hits.push(m.index);
+      if (!/focus-visible/.test(code)) {
+        for (const m of matches(/outline:\s*(?:["']?none["']?|0\b)/, code)) hits.push(m.index);
+        // The longhand: `outline-style: none` in CSS and `outlineStyle: "none"`
+        // in a JS style object (#250) remove the focus outline just the same.
+        for (const m of matches(/outline-style\s*:\s*["']?none\b["']?|outlineStyle\s*:\s*["']?none\b["']?/, code)) hits.push(m.index);
       }
       return hits;
     },
@@ -1271,7 +1443,11 @@ const rules = [
     fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
     find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
+      // Nuxt Image renders <NuxtImg> / <NuxtPicture>, also written kebab-case (#203).
+      // Vuetify renders <v-img> / <VImg> as an <img> too (#229).
+      // Ionic renders <ion-img> / <IonImg> as an <img> too (#235).
+      // Quasar renders <q-img> / <QImg> and Element Plus <el-image> / <ElImage> as <img> too (#249).
+      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg|ion-img|IonImg|q-img|QImg|el-image|ElImage)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
@@ -1434,17 +1610,42 @@ const rules = [
       }
       // Native buttons: the label only counts inside a button call, so a
       // bare Text("Submit") used as a heading or field label stays quiet.
-      // Button("Submit") { save() } (Swift), Button(onClick = {}) {
-      // Text("Submit") } (Compose trailing lambda), ElevatedButton(...,
+      // Button("Submit") { save() } or Button { save() } label: { Text("Submit") } (Swift),
+      // Button(onClick = {}) { Text("Submit") } (Compose trailing lambda), ElevatedButton(...,
       // child: Text("Submit")) (Flutter). Only the first argument or a
-      // Text(...) label counts, so a vague string in the action code does not.
-      const label = /^\(\s*["'](?:Submit|Click here|Tap here)["']|\bText\(\s*["'](?:Submit|Click here|Tap here)["']/i;
+      // Text(...)/Label(...) label counts, so a vague string in the action code does not.
+      const isVagueText = (s) => /^(?:submit|click here|tap here)$/i.test(s);
+      const hasVagueLabel = (slice) => {
+        const first = /^\(\s*["']([^"']+)["']/.exec(slice);
+        if (first && isVagueText(first[1])) return true;
+        for (const t of matches(/\b(?:Text|Label)\(\s*["']([^"']+)["']/, slice)) {
+          if (isVagueText(t[1])) return true;
+        }
+        return false;
+      };
       for (const m of matches(/\b(?:ElevatedButton|TextButton|OutlinedButton|FilledButton|Button)\s*\(/, code)) {
         const open = m.index + m[0].length - 1;
         let end = closeOf(code, open);
         const lambda = /^\s*\{/.exec(code.slice(end));
         if (lambda) end = closeOf(code, end + lambda[0].length - 1);
-        if (label.test(code.slice(open, end))) hits.push(m.index);
+        const trailingLabel = /^\s*label\s*:\s*\{/.exec(code.slice(end));
+        if (trailingLabel) {
+          const labelOpen = end + trailingLabel[0].length - 1;
+          const labelEnd = closeOf(code, labelOpen);
+          if (hasVagueLabel(code.slice(labelOpen, labelEnd))) hits.push(m.index);
+        } else if (hasVagueLabel(code.slice(open, end))) {
+          hits.push(m.index);
+        }
+      }
+      // SwiftUI multiple-trailing-closure form: Button { save() } label: { Text("Submit") }.
+      for (const m of matches(/\bButton\s*\{/, code)) {
+        const actionOpen = m.index + m[0].length - 1;
+        const actionEnd = closeOf(code, actionOpen);
+        const trailingLabel = /^\s*label\s*:\s*\{/.exec(code.slice(actionEnd));
+        if (!trailingLabel) continue;
+        const labelOpen = actionEnd + trailingLabel[0].length - 1;
+        const labelEnd = closeOf(code, labelOpen);
+        if (hasVagueLabel(code.slice(labelOpen, labelEnd))) hits.push(m.index);
       }
       return hits;
     },
