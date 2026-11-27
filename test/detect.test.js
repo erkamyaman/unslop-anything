@@ -2937,3 +2937,30 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("nested-cards flags Chakra UI v3 Card.Root inside Card.Root while keeping card parts and siblings quiet (issue #305)", () => {
+  const nestedLines = (src) => scanSource(src, "Plans.tsx").filter((f) => f.rule === "nested-cards").map((f) => f.line);
+  const nested = [
+    'import { Card } from "@chakra-ui/react";',
+    "export const Plans = () => (",
+    "  <Card.Root>",
+    "    <Card.Body>",
+    "      <Card.Root><Card.Body>Pro plan</Card.Body></Card.Root>",
+    "    </Card.Body>",
+    "  </Card.Root>",
+    ");",
+  ].join("\n");
+  assert.deepStrictEqual(nestedLines(nested), [3]);
+
+  const singleWithParts = [
+    "<Card.Root>",
+    "  <Card.Header>Title</Card.Header>",
+    "  <Card.Body>Body</Card.Body>",
+    "  <Card.Footer>Footer</Card.Footer>",
+    "</Card.Root>",
+  ].join("\n");
+  assert.deepStrictEqual(nestedLines(singleWithParts), []);
+
+  const siblings = "<>\n  <Card.Root><Card.Body>A</Card.Body></Card.Root>\n  <Card.Root><Card.Body>B</Card.Body></Card.Root>\n</>\n";
+  assert.deepStrictEqual(nestedLines(siblings), []);
+});
