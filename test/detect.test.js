@@ -2401,6 +2401,48 @@ test("clickable-div flags click handlers on headings and paragraphs (issue #264)
   assert.deepStrictEqual(rulesFor('<p>Read more</p>\n'), []);
 });
 
+test("clickable-div flags click handlers on header, footer and figure (issue #284)", () => {
+  const linesFor = (src, file = "a.tsx") =>
+    scanSource(src, file)
+      .filter((f) => f.rule === "clickable-div")
+      .map((f) => f.line);
+
+  // Issue #284 repro:
+  const repro = [
+    "export function Gallery({ open }) {",
+    '  return <figure onClick={open}><img src="/a.png" alt="A" /></figure>;',
+    "}",
+    "export const Panel = ({ toggle }) => <header onClick={toggle}>Details</header>;",
+  ].join("\n");
+  assert.deepStrictEqual(linesFor(repro, "Gallery.tsx"), [2, 4]);
+
+  // Each tag with the click handler forms the rule reads
+  for (const tag of ["header", "footer", "figure"]) {
+    assert.deepStrictEqual(linesFor(`<${tag} onClick={toggle}>Details</${tag}>\n`), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} onClick$={toggle}>Details</${tag}>\n`), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} @click="toggle">Details</${tag}>\n`, "Panel.vue"), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} v-on:click="toggle">Details</${tag}>\n`, "Panel.vue"), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} (click)="toggle()">Details</${tag}>\n`, "panel.component.html"), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} on:click={toggle}>Details</${tag}>\n`, "Panel.svelte"), [1], tag);
+    assert.deepStrictEqual(linesFor(`<${tag} onclick="toggle()">Details</${tag}>\n`, "panel.html"), [1], tag);
+
+    // An interactive role with a tabIndex keeps it quiet, like a div.
+    assert.deepStrictEqual(linesFor(`<${tag} onClick={toggle} role="button" tabIndex={0}>Details</${tag}>\n`), [], tag);
+    // Without a click handler there is nothing to report.
+    assert.deepStrictEqual(linesFor(`<${tag}>Details</${tag}>\n`), [], tag);
+  }
+
+  // Longer custom tags that start the same way, and PascalCase components, stay quiet.
+  assert.deepStrictEqual(linesFor("<header-bar onClick={toggle} />\n"), []);
+  assert.deepStrictEqual(linesFor('<footer-links (click)="go()"></footer-links>\n', "panel.component.html"), []);
+  assert.deepStrictEqual(linesFor("<figure-card onClick={open} />\n"), []);
+  assert.deepStrictEqual(linesFor("<Header onClick={toggle} />\n"), []);
+  assert.deepStrictEqual(linesFor("<Footer onClick={toggle} />\n"), []);
+  assert.deepStrictEqual(linesFor("<Figure onClick={open} />\n"), []);
+  // figcaption is its own tag
+  assert.deepStrictEqual(linesFor("<figcaption onClick={open}>A</figcaption>\n"), []);
+});
+
 test("template-theme flags create-vite's #646cff and #535bf2", () => {
   const rulesFor = (src) => scanSource(src, "index.css").map((f) => f.rule).filter((r) => r === "template-theme");
   assert.deepStrictEqual(rulesFor("a {\n  font-weight: 500;\n  color: #646cff;\n}\na:hover {\n  color: #535bf2;\n}\n"), ["template-theme"]);
