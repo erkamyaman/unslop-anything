@@ -1562,6 +1562,18 @@ test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", 
   assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
 });
 
+test("img-no-alt checks PrimeNG p-image in Angular templates", () => {
+  const template = [
+    '<p-image src="/hero.png" width="250" preview />',
+    '<p-image src="/hero.png" alt="Hero" />',
+    '<p-image src="/decoration.png" alt="" />',
+    '<p-image src="/hero.png" [alt]="title" />',
+    '<p-image-compare />',
+  ].join("\n");
+  const findings = scanSource(template, "hero.component.html", { kind: "web" });
+  assert.deepStrictEqual(findings.filter((f) => f.rule === "img-no-alt").map((f) => f.line), [1]);
+});
+
 test("img-no-alt flags Astro's Picture component without alt (issue #268)", () => {
   const altLines = (src, file = "Hero.astro") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
   // Issue #268 repro:

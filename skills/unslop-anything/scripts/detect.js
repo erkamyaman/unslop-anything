@@ -1466,7 +1466,7 @@ const rules = [
       // Quasar renders <q-img> / <QImg> and Element Plus <el-image> / <ElImage> as <img> too (#249).
       // Astro renders <Picture> as an <img> too (#268).
       // So do Gatsby's <StaticImage> and <GatsbyImage> from gatsby-plugin-image (#285).
-      for (const m of matches(/<(?:img|Image|Picture|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg|ion-img|IonImg|q-img|QImg|el-image|ElImage|StaticImage|GatsbyImage)(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:img|Image|Picture|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg|ion-img|IonImg|q-img|QImg|el-image|ElImage|StaticImage|GatsbyImage|p-image)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if ((tag.startsWith("<Image") || tag.startsWith("<Picture")) && !/\ssrc\s*=/.test(tag)) continue;
