@@ -2521,6 +2521,9 @@ test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)",
   assert.deepStrictEqual(rulesFor(screen(avoid, "AvoidSoftInput.setEnabled(true);")), []);
   assert.deepStrictEqual(rulesFor(screen(avoid, "AvoidSoftInput.setEnabled \t (true, );")), []);
   assert.deepStrictEqual(rulesFor(screen(avoid, "AvoidSoftInput.setEnabled(false);")), [8]);
+  assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = "AvoidSoftInput.setEnabled(true)";')), [8]);
+  assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `literal AvoidSoftInput.setEnabled(true)`;')), [8]);
+  assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `call ${AvoidSoftInput.setEnabled(true)}`;')), []);
   // Imported but never used: still flagged
   assert.deepStrictEqual(rulesFor(screen(avoid, "")), [7]);
   // Nested wrappers still cover inputs after the inner wrapper closes.
@@ -2543,6 +2546,17 @@ test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)",
     "</AvoidSoftInputView>",
   ].join("\n");
   assert.deepStrictEqual(rulesFor(selfClosing), [4]);
+  // A greater-than sign inside a quoted attribute does not make the opening tag self-closing.
+  const quotedGreaterThan = [
+    'import { TextInput } from "react-native";',
+    'import { AvoidSoftInputView } from "react-native-avoid-softinput";',
+    '<AvoidSoftInputView testID="/>">',
+    '  <TextInput placeholder="Message" />',
+    '</AvoidSoftInputView>',
+  ].join("\n");
+  assert.deepStrictEqual(rulesFor(quotedGreaterThan), []);
+  // Markup-like text in a string is not a real wrapper.
+  assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = "<AvoidSoftInputView>";')), [8]);
   // A bare TextInput beside a wrapped one is still flagged
   const mixed = [
     'import { TextInput, View } from "react-native";',

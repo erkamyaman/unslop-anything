@@ -280,6 +280,62 @@ function blankComments(text, stack) {
   return out.join("");
 }
 
+// Mask quoted literals while keeping offsets/newlines. Some rules need to
+// distinguish executable calls from source text embedded in strings.
+function blankStrings(text) {
+  const out = text.split("");
+  const blank = (from, to) => {
+    for (let i = from; i < to; i++) if (out[i] !== "\n") out[i] = " ";
+  };
+  const maskQuoted = (start, quote) => {
+    let i = start + 1;
+    while (i < text.length) {
+      if (text[i] === "\\") { i += 2; continue; }
+      if (text[i] === quote || (text[i] === "\n" && quote !== "`")) break;
+      i++;
+    }
+    if (i < text.length && text[i] === quote) i++;
+    blank(start, i);
+    return i;
+  };
+  const maskTemplate = (start) => {
+    let segment = start;
+    for (let i = start + 1; i < text.length;) {
+      if (text[i] === "\\") { i += 2; continue; }
+      if (text[i] === "`") { blank(segment, i + 1); return i + 1; }
+      if (text[i] === "$" && text[i + 1] === "{") {
+        blank(segment, i + 2);
+        i = scanCode(i + 2, 1);
+        segment = i;
+        continue;
+      }
+      i++;
+    }
+    blank(segment, text.length);
+    return text.length;
+  };
+  const scanCode = (start, templateDepth = 0) => {
+    let depth = templateDepth;
+    for (let i = start; i < text.length;) {
+      const c = text[i];
+      if (c === "'" || c === '"') { i = maskQuoted(i, c); continue; }
+      if (c === "`") { i = maskTemplate(i); continue; }
+      if (c === "/" && isRegexStart(text, i)) {
+        const end = skipRegex(text, i);
+        blank(i, end);
+        i = end;
+        continue;
+      }
+      if (templateDepth > 0 && c === "{") depth++;
+      else if (templateDepth > 0 && c === "}" && --depth === 0) return i + 1;
+      i++;
+    }
+    return text.length;
+  };
+  scanCode(0);
+  return out.join("");
+}
+
 // Collect string literal contents with their starting offsets. This is used by
 // rules that care about a whole literal rather than text inside it. It keeps
 // JSX prose apostrophes, Swift interpolation and Swift raw strings from being
@@ -1217,20 +1273,26 @@ const rules = [
       if (/\b(?:useAnimatedKeyboard|useKeyboardHandler|useReanimatedKeyboardAnimation)\s*\(/.test(code)) return [];
       // react-native-avoid-softinput (#306): enabled app-wide through AvoidSoftInput.setEnabled(true),
       // or each TextInput sits inside an <AvoidSoftInputView>. A bare import does not count.
-      if (/\bAvoidSoftInput\.setEnabled\s*\(\s*true\s*,?\s*\)/.test(code)) return [];
+      if (/\bAvoidSoftInput\.setEnabled\s*\(\s*true\s*,?\s*\)/.test(blankStrings(code))) return [];
+      const codeWithoutStrings = blankStrings(code);
       const wrappedAt = (at) => {
         let depth = 0;
-        for (const tag of matches(/<(\/?)AvoidSoftInputView\b([^>]*)>/, code)) {
+        const tags = /<(\/?)AvoidSoftInputView\b/g;
+        let tag;
+        while ((tag = tags.exec(codeWithoutStrings))) {
           if (tag.index >= at) break;
+          const end = tagEnd(code, tag.index + tag[0].length);
+          if (end === -1) break;
           if (tag[1]) {
             if (depth > 0) depth--;
-          } else if (!/\/\s*$/.test(tag[2])) {
+          } else if (!/\/\s*>$/.test(code.slice(tag.index, end + 1))) {
             depth++;
           }
+          tags.lastIndex = end + 1;
         }
         return depth > 0;
       };
-      const bare = [...matches(/<TextInput\b/, code)].find((m) => !wrappedAt(m.index));
+      const bare = [...matches(/<TextInput\b/, codeWithoutStrings)].find((m) => !wrappedAt(m.index));
       return bare ? [bare.index] : [];
     },
   },
