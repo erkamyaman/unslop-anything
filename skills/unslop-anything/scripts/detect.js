@@ -1200,9 +1200,13 @@ const rules = [
     stacks: ["js"],
     message: "Screen with a text input and no keyboard handling. The keyboard may cover the field.",
     fix: "Use KeyboardAvoidingView, automaticallyAdjustKeyboardInsets, or the project's keyboard library, and set keyboardShouldPersistTaps on the scroll view. Check it on a small phone.",
-    find({ code }) {
+    find({ code, file }) {
       const input = /<TextInput\b/.exec(code);
       if (!input) return [];
+      const where = file.replace(/\\/g, "/");
+      const name = path.basename(where).replace(/\.[^.]+$/, "");
+      const screenPath = /(?:^|\/)screens\//.test(where) || /Screen$/.test(name) || (/(?:^|\/)app\//.test(where) && !name.startsWith("_"));
+      if (!screenPath && !/<(?:ScrollView|FlatList|FlashList|SafeAreaView|KeyboardAwareScrollView)\b/.test(code)) return [];
       if (/KeyboardAvoidingView|KeyboardAware|KeyboardProvider|KeyboardStickyView|KeyboardController|automaticallyAdjustKeyboardInsets|keyboardShouldPersistTaps/.test(code)) return [];
       return [input.index];
     },
