@@ -2276,6 +2276,45 @@ test("drawer-nav catches Ionic's IonMenuToggle (issue #265)", () => {
   assert.deepStrictEqual(lines("<IonTabs>\n  <IonTabBar slot=\"bottom\" />\n</IonTabs>\n"), []);
 });
 
+test("drawer-nav catches Quasar's q-drawer and QDrawer, not a tab layout (issue #281)", () => {
+  const lines = (src, file = "Layout.vue") => scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => [f.line, f.severity]);
+  // Issue #281 repro:
+  const repro = [
+    "<template>",
+    '  <q-layout view="hHh lpR fFf">',
+    '    <q-drawer v-model="leftDrawerOpen" side="left" bordered>',
+    "      <q-list>Menu</q-list>",
+    "    </q-drawer>",
+    "  </q-layout>",
+    "</template>",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [[3, "noticeable"]]);
+
+  // Tag variants
+  for (const tag of ["q-drawer", "QDrawer"]) {
+    assert.deepStrictEqual(lines(`<template>\n  <${tag} v-model="open" />\n</template>\n`), [[2, "noticeable"]], tag);
+    assert.deepStrictEqual(lines(`<template>\n  <${tag}>\n    <q-list>Menu</q-list>\n  </${tag}>\n</template>\n`), [[2, "noticeable"]], tag);
+  }
+
+  // Quiet cases: a tab layout, and longer tags that start the same way
+  const tabs = [
+    "<template>",
+    '  <q-layout view="hHh lpR fFf">',
+    "    <q-footer>",
+    '      <q-tabs v-model="tab">',
+    '        <q-tab name="home" label="Home" />',
+    "      </q-tabs>",
+    "    </q-footer>",
+    "  </q-layout>",
+    "</template>",
+  ].join("\n");
+  assert.deepStrictEqual(lines(tabs), []);
+  assert.deepStrictEqual(lines("<template>\n  <q-drawer-hint />\n  <QDrawerHint />\n</template>\n"), []);
+
+  // The existing drawers keep working
+  assert.deepStrictEqual(lines("<ion-menu />\n", "Header.tsx"), [[1, "noticeable"]]);
+});
+
 test("keyboard-cover flags a bare TextInput on a screen file, not in a reusable input", () => {
   const rulesFor = (src, file) => scanSource(src, file).filter((f) => f.rule === "keyboard-cover").map((f) => f.line);
   const bare = 'import { TextInput, View } from "react-native";\n\nexport default function Login() {\n  return (\n    <View>\n      <TextInput placeholder="Email" />\n    </View>\n  );\n}\n';
