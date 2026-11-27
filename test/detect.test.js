@@ -1843,8 +1843,11 @@ test("sparkle-icon flags Iconify and Nuxt sparkle icon names, not prose or unrel
     '  <Icon icon="mdi:sparkle" />',
     '  <Icon icon="heroicons:sparkles" />',
     '  <Icon icon="ph:sparkle" />',
-    '  <Icon icon="tabler:sparkles" />', '<i class="ri-sparkling-line"></i>', '<i class="ri-sparkling-2-fill"></i>',
-    '  <p>sparkling water</p>',
+    '  <Icon icon="tabler:sparkles" />',
+    '  <i class="ri-sparkling-line"></i>',
+    '  <i class="ri-sparkling-2-fill"></i>',
+    '  <p>Add some sparkles</p>',
+    '  <span>sparkling water</span>',
     '  <Icon icon="lucide:star" />',
     "</template>",
   ].join("\n");
