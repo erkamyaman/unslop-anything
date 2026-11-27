@@ -1152,7 +1152,7 @@ test("clickable-div flags a href-less anchor with onClick", () => {
   assert.deepStrictEqual(findingsFor('<a onClick={go} tabIndex={0}>Go</a>\n').map((f) => f.rule), ["clickable-div"]);
 });
 
-test("clickable-div requires both an interactive role and tabIndex on div/span/li/td/img", () => {
+test("clickable-div requires both an interactive role and tabIndex on div/span/li/td/tr/img", () => {
   const rulesFor = (src, file = "a.tsx") =>
     scanSource(src, file)
       .filter((f) => f.rule === "clickable-div")
@@ -1167,6 +1167,35 @@ test("clickable-div requires both an interactive role and tabIndex on div/span/l
   assert.deepStrictEqual(rulesFor('<div role="button" tabIndex={0} onClick={open}>Open</div>\n'), []);
   assert.deepStrictEqual(rulesFor('<div role="button" :tabindex="0" @click="open">Open</div>\n', "A.vue"), []);
   assert.deepStrictEqual(rulesFor('<div role="button" tabindex="0" on:click={open}>Open</div>\n', "A.svelte"), []);
+});
+
+test("clickable-div flags click handlers on table rows (issue #247)", () => {
+  const lines = (src, file = "Orders.tsx") => scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  const repro = [
+    "export function Orders({ orders, open }) {",
+    "  return (",
+    "    <table>",
+    "      <tbody>",
+    "        {orders.map((o) => (",
+    "          <tr key={o.id} onClick={() => open(o.id)}>",
+    "            <td>{o.number}</td>",
+    "          </tr>",
+    "        ))}",
+    "      </tbody>",
+    "    </table>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [6]);
+  assert.deepStrictEqual(lines('<tr @click="open">\n  <td>Open</td>\n</tr>\n', "Orders.vue"), [1]);
+  assert.deepStrictEqual(lines('<tr (click)="open()">\n  <td>Open</td>\n</tr>\n', "orders.component.html"), [1]);
+  assert.deepStrictEqual(lines("<tr on:click={open}>\n  <td>Open</td>\n</tr>\n", "Orders.svelte"), [1]);
+  assert.deepStrictEqual(lines('<tr role="button" onClick={open}>\n  <td>Open</td>\n</tr>\n'), [1]);
+  // Quiet: no handler, a component row, an interactive role with tabIndex, and <track>.
+  assert.deepStrictEqual(lines("<tr>\n  <td>Open</td>\n</tr>\n"), []);
+  assert.deepStrictEqual(lines("<TableRow onClick={open}>\n  <TableCell>Open</TableCell>\n</TableRow>\n"), []);
+  assert.deepStrictEqual(lines('<tr role="button" tabIndex={0} onClick={open}>\n  <td>Open</td>\n</tr>\n'), []);
+  assert.deepStrictEqual(lines('<track kind="captions" onClick={open} />\n'), []);
 });
 
 test("tagEnd skips strings inside an attribute expression", () => {
@@ -1260,6 +1289,23 @@ test("focus-removed flags outline: none and outline: 0 in JS/TS files (issue #22
 
   // Preserved outlines stay quiet
   assert.deepStrictEqual(lines('<input style={{ outline: "2px solid #2563eb" }} />\n'), []);
+});
+
+test("focus-removed flags outline-style: none and outlineStyle: \"none\" (issue #250)", () => {
+  const lines = (src, file = "Field.tsx") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "focus-removed").map((f) => f.line);
+  // Issue #250 repro:
+  assert.deepStrictEqual(lines('export const Field = () => <input style={{ outlineStyle: "none" }} aria-label="Email" />;\n'), [1]);
+  assert.deepStrictEqual(lines("input:focus { outline-style: none; }\n", "field.css"), [1]);
+  assert.deepStrictEqual(lines("<input style={{ outlineStyle: 'none' }} />\n"), [1]);
+  // The quiet cases: a real outline value, and a file with a focus-visible style.
+  assert.deepStrictEqual(lines("input:focus { outline-style: solid; }\n", "field.css"), []);
+  assert.deepStrictEqual(lines('<input style={{ outlineStyle: "auto" }} />\n'), []);
+  assert.deepStrictEqual(
+    lines('export const Field = () => <input style={{ outlineStyle: "none" }} />;\n:focus-visible { outline: 2px solid blue; }\n'),
+    [],
+  );
+  assert.deepStrictEqual(lines('<input style={{ outlineStyle: "none" }} className="focus-visible:ring-2" />\n'), []);
+  assert.deepStrictEqual(lines("input:focus { outline-style: none; } input:focus-visible { outline: 2px solid blue; }\n", "field.css"), []);
 });
 
 test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card", () => {
@@ -1366,6 +1412,18 @@ test("img-no-alt flags Ionic's ion-img and IonImg without alt (issue #235)", () 
   assert.deepStrictEqual(altLines('<ion-img :src="photo.url" :alt="photo.caption" />\n'), []);
   assert.deepStrictEqual(altLines('<IonImg src="/hero.png" alt={caption} />\n', "Hero.tsx"), []);
   assert.deepStrictEqual(altLines('<ion-img-viewer src="/hero.png" />\n'), []);
+});
+
+test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", () => {
+  const altLines = (src, file = "Gallery.vue") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  assert.deepStrictEqual(altLines('<template>\n  <q-img src="/hero.png" />\n  <QImg src="/team.png" />\n  <el-image src="/group.png" />\n  <ElImage src="/office.png" />\n</template>\n'), [2, 3, 4, 5]);
+  assert.deepStrictEqual(altLines('<q-img src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<QImg src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<ElImage src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<q-img :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
 });
 
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
@@ -1595,7 +1653,33 @@ test("glow-shadow skips inset accent bars with no blur (#111)", () => {
   );
 });
 
-test("hover-scale flags Tailwind arbitrary scale values and translate-y lifts", () => {
+test("glow-shadow flags boxShadow and textShadow in JS style objects (#251)", () => {
+  // Issue #251 repro: the flag lands on line 3, like the CSS box-shadow case.
+  const hero = [
+    "export function Hero() {",
+    "  return (",
+    '    <div style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.6)" }}>',
+    "      Pro",
+    "    </div>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(hero, "Hero.tsx").map((f) => [f.rule, f.line]), [["glow-shadow", 3]]);
+  // textShadow, single quotes, backticks, and a later key in the same object.
+  assert.deepStrictEqual(scanSource(`<div style={{ textShadow: '0 0 12px #7c3aed' }} />\n`, "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource("<div style={{ boxShadow: `0 0 40px #7c3aed` }} />\n", "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(
+    scanSource(`<div style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.6)", color: "blue" }} />\n`, "a.tsx").map((f) => f.rule),
+    ["glow-shadow"],
+  );
+  assert.deepStrictEqual(scanSource("<div style={{ boxShadow: `0 0 ${blur}px #7c3aed` }} />\n", "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource("const glow = {\n  boxShadow: `0 0 40px\n    #7c3aed`,\n};\n", "a.ts").map((f) => [f.rule, f.line]), [["glow-shadow", 2]]);
+  // A neutral shadow stays quiet, and a later key is not read as part of it.
+  assert.deepStrictEqual(scanSource(`<div style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" }} />\n`, "a.tsx"), []);
+  assert.deepStrictEqual(scanSource(`<div style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)", color: "#7c3aed" }} />\n`, "a.tsx").filter((f) => f.rule === "glow-shadow"), []);
+});
+
+test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's example line, plus the group- prefix variant.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.03]">x</div>\n'), ["hover-scale"]);
@@ -1605,7 +1689,31 @@ test("hover-scale flags Tailwind arbitrary scale values and translate-y lifts", 
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.01]">x</div>\n'), []);
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[0.98]">x</div>\n'), []);
   // The named steps still work.
-  assert.deepStrictEqual(rulesFor('<div className="hover:-translate-y-px">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:-translate-y-[2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-[-2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="group-hover:-translate-y-px">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="group-hover:translate-y-[-2px]">x</div>'), ["hover-scale"]); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-px">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:translate-y-[2px]">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:-translate-x-1">x</div>'), []); assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
+});
+
+test("hover-scale flags Tailwind translate-y lifts written in px and arbitrary values (issue #246)", () => {
+  const lines = (src) => scanSource(src, "Feature.tsx").filter((f) => f.rule === "hover-scale").map((f) => f.line);
+  const repro = [
+    "export function Feature() {",
+    "  return (",
+    '    <div className="rounded-xl border p-6 transition hover:-translate-y-[2px]">',
+    "      Fast",
+    "    </div>",
+    "  );",
+    "}",
+    "",
+    'export const Lift = () => <div className="hover:-translate-y-px">Lift</div>;',
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [3, 9]);
+  for (const cls of ["hover:-translate-y-px", "hover:-translate-y-[2px]", "hover:translate-y-[-2px]", "group-hover:-translate-y-px", "group-hover:-translate-y-[2px]", "group-hover:translate-y-[-2px]"]) {
+    assert.deepStrictEqual(lines(`<div className="${cls}">x</div>\n`), [1], cls);
+  }
+  // Downward and sideways moves stay quiet, and the numeric step still works.
+  for (const cls of ["hover:translate-y-px", "hover:translate-y-[2px]", "hover:-translate-x-1", "hover:-translate-x-[2px]"]) {
+    assert.deepStrictEqual(lines(`<div className="${cls}">x</div>\n`), [], cls);
+  }
+  assert.deepStrictEqual(lines('<div className="hover:-translate-y-1">x</div>\n'), [1]);
 });
 
 test("hover-scale flags standalone CSS scale at 1.02 and above, not neutral, shrinking, or similarly named properties", () => {
@@ -1789,12 +1897,15 @@ test("sparkle-icon flags Iconify and Nuxt sparkle icon names, not prose or unrel
     '  <Icon icon="heroicons:sparkles" />',
     '  <Icon icon="ph:sparkle" />',
     '  <Icon icon="tabler:sparkles" />',
+    '  <i class="ri-sparkling-line"></i>',
+    '  <i class="ri-sparkling-2-fill"></i>',
     '  <p>Add some sparkles</p>',
+    '  <span>sparkling water</span>',
     '  <Icon icon="lucide:star" />',
     "</template>",
   ].join("\n");
   const findings = scanSource(vue, "Badge.vue").filter((f) => f.rule === "sparkle-icon");
-  assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7]);
+  assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
 test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => {
@@ -1802,7 +1913,7 @@ test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => 
   // Issue #197: the repro.
   const repro = 'import { HiSparkles } from "react-icons/hi2";\nimport { MdAutoAwesome } from "react-icons/md";\n\nexport function AiBadge() {\n  return <HiSparkles />;\n}\n';
   assert.deepStrictEqual(sparkleLines(repro), [1, 2, 5]);
-  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
+  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome", "RiSparklingLine", "RiSparklingFill", "RiSparkling2Line", "RiSparkling2Fill"]) {
     assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [1], name);
   }
   for (const name of ["HiStar", "MdAutoGraph", "SparkleCounter"]) {
@@ -1952,16 +2063,20 @@ test("drawer-nav catches every style of the hamburger icon (issue #146)", () => 
   assert.deepStrictEqual(lines('<Ionicons name="menu-sharp-outline" />\n', "Header.tsx"), []);
 });
 
-test("drawer-nav catches Heroicons Bars3Icon and Tabler IconMenu2, not dropdown menus or overflow icons", () => {
+test("drawer-nav catches Heroicons Bars3Icon, Tabler IconMenu2 and Ionic IonMenu, not dropdown menus or overflow icons", () => {
   const lines = (src, file = "Header.tsx") => scanSource(src, file).filter((f) => f.rule === "drawer-nav").map((f) => [f.line, f.severity]);
   // Issue #204: the repro. The rule reports the first hit in a file.
   const repro = 'import { Bars3Icon } from "react-native-heroicons/outline";\nimport { IconMenu2 } from "@tabler/icons-react-native";\n\nexport function Header() {\n  return <Bars3Icon size={24} />;\n}\n';
   assert.deepStrictEqual(lines(repro), [[1, "noticeable"]]);
-  for (const icon of ["Bars3Icon", "Bars3BottomLeftIcon", "IconMenu2"]) {
+  for (const icon of ["Bars3Icon", "Bars3BottomLeftIcon", "IconMenu2", "IonMenu", "IonMenuButton", "ion-menu", "ion-menu-button"]) {
     assert.deepStrictEqual(lines(`<${icon} size={24} />\n`).map(([line]) => line), [1], icon);
   }
   assert.deepStrictEqual(lines('import Menu from "@mui/material/Menu";\n<Menu open={open} />\n'), []);
   assert.deepStrictEqual(lines("<EllipsisVerticalIcon size={24} />\n"), []);
+  // Issue #248: Ionic React's IonMenu is reported on the tag, not the import.
+  const ionic = 'import { IonMenu, IonContent, IonList, IonItem } from "@ionic/react";\n\nexport function Menu() {\n  return (\n    <IonMenu contentId="main">\n      <IonContent />\n    </IonMenu>\n  );\n}\n';
+  assert.deepStrictEqual(lines(ionic, "App.tsx"), [[5, "noticeable"]]);
+  assert.deepStrictEqual(lines("<IonTabs>\n  <IonTabBar slot=\"bottom\" />\n</IonTabs>\n"), []);
 });
 
 test("drawer-nav catches React Native Paper's icon=\"menu\" (issue #226)", () => {

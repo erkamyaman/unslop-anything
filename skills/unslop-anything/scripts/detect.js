@@ -925,9 +925,9 @@ const rules = [
       const hits = [];
       // text-shadow is layered like box-shadow (#200); textShadowColor is React
       // Native's text glow (#201); a filter drop-shadow() is one shadow (#199).
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|\b(?:BoxShadow|Shadow)\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)/, code)) {
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|(?:shadowColor|textShadowColor)\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|\b(?:BoxShadow|Shadow)\(\s*color:\s*([^,)\n]+)|(?:box|text)-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]|\bdrop-shadow\(((?:[^()\n]|\([^()\n]*\))*)\)|\b(?:box|text)Shadow\s*:\s*(?:"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`)/, code)) {
         const raw = m.slice(1).find(Boolean) || "";
-        const layers = m[5] || m[7] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
+        const layers = m[5] || m[7] || m[9] || m[10] || m[11] ? glowLayers(raw.replace(/_/g, " ")) : raw ? [raw] : [];
         if (layers.some((value) => isGlowValue(value, stack))) hits.push(m.index);
       }
       return hits;
@@ -1044,7 +1044,7 @@ const rules = [
       // when the literal is exactly that symbol; substrings and apostrophes
       // inside longer text stay quiet.
       const symbol = /^(?:sparkles?(?:\.[a-z0-9._-]+)?|wand\.and\.(?:stars|sparkles)(?:\.[a-z0-9._-]+)?|[a-z0-9-]+:sparkles?|i-[a-z0-9-]+-sparkles?|wand-magic-sparkles)$/;
-      const re = /\bauto_awesome\b|\bAutoAwesome(?:Outlined|Rounded|Sharp|TwoTone)?(?:Icon)?\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfaWandMagicSparkles\b|(?<![\w-])fa-wand-magic-sparkles(?![\w-])/;
+      const re = /\bauto_awesome\b|\bAutoAwesome(?:Outlined|Rounded|Sharp|TwoTone)?(?:Icon)?\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bIconSparkles\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨|\b(?:Hi(?:Outline|Mini)?|Lu|Tb|Pi|Bs|Io|Ri)Sparkles?(?:Fill|Line|Outline|Sharp|Bold|Duotone|Light|Thin)?\b|\bRiSparkling(?:2)?(?:Fill|Line)?\b|\bMd(?:Outline|Round|Sharp|TwoTone)?AutoAwesome\b|\bfaWandMagicSparkles\b|(?<![\w-])fa-wand-magic-sparkles(?![\w-])|(?<![\w-])ri-sparkling(?:-2)?-(?:line|fill)(?![\w-])/;
       const hits = [...matches(re, code)].map((m) => m.index);
 
       for (const literal of stringLiterals(code, stack)) {
@@ -1175,7 +1175,7 @@ const rules = [
     message: "Hamburger menu or navigation drawer. It hides the top destinations behind a tap.",
     fix: "Ask first. Use tabs for three to five peer destinations; keep a drawer only for many destinations or a large-screen rail.",
     find({ code }) {
-      const re = /["']line\.(?:3\.horizontal|horizontal\.3)["']|\bIcons\.(?:Default\.|Filled\.|Outlined\.|Rounded\.|Sharp\.)?Menu\b|\bIcons\.menu(?:_rounded|_outlined|_sharp)?\b|\b(?:name|icon)=["']menu(?:-outline|-sharp)?["']|\bcreateDrawerNavigator\b|from\s+["']expo-router\/drawer["']|\bModalNavigationDrawer\b|\bdrawer:\s*(?:const\s+)?\w*Drawer\b|<ion-menu\b|\bBars3(?:BottomLeft|BottomRight|CenterLeft)?Icon\b|\bIconMenu2\b/;
+      const re = /["']line\.(?:3\.horizontal|horizontal\.3)["']|\bIcons\.(?:Default\.|Filled\.|Outlined\.|Rounded\.|Sharp\.)?Menu\b|\bIcons\.menu(?:_rounded|_outlined|_sharp)?\b|\b(?:name|icon)=["']menu(?:-outline|-sharp)?["']|\bcreateDrawerNavigator\b|from\s+["']expo-router\/drawer["']|\bModalNavigationDrawer\b|\bdrawer:\s*(?:const\s+)?\w*Drawer\b|<ion-menu\b|<IonMenu(?:Button)?\b|\bBars3(?:BottomLeft|BottomRight|CenterLeft)?Icon\b|\bIconMenu2\b/;
       const first = matches(re, code).next();
       return first.done ? [] : [first.value.index];
     },
@@ -1383,7 +1383,7 @@ const rules = [
       const hits = [];
       // Each opening tag is read to its real end first, so an arrow function in an earlier
       // attribute (`onKeyDown={(e) => ...}`) does not hide the click handler after it.
-      for (const m of matches(/<(?:div|span|li|td|img|a|article|section)\b/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|tr|img|a|article|section)\b/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         // Only this element's own attributes: a nested element inside {...} is checked on its own.
@@ -1428,6 +1428,9 @@ const rules = [
       }
       if (!/focus-visible/.test(code)) {
         for (const m of matches(/outline:\s*(?:["']?none["']?|0\b)/, code)) hits.push(m.index);
+        // The longhand: `outline-style: none` in CSS and `outlineStyle: "none"`
+        // in a JS style object (#250) remove the focus outline just the same.
+        for (const m of matches(/outline-style\s*:\s*["']?none\b["']?|outlineStyle\s*:\s*["']?none\b["']?/, code)) hits.push(m.index);
       }
       return hits;
     },
@@ -1444,7 +1447,8 @@ const rules = [
       // Nuxt Image renders <NuxtImg> / <NuxtPicture>, also written kebab-case (#203).
       // Vuetify renders <v-img> / <VImg> as an <img> too (#229).
       // Ionic renders <ion-img> / <IonImg> as an <img> too (#235).
-      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg|ion-img|IonImg)(?=[\s/>])/, code)) {
+      // Quasar renders <q-img> / <QImg> and Element Plus <el-image> / <ElImage> as <img> too (#249).
+      for (const m of matches(/<(?:img|Image|NuxtImg|NuxtPicture|nuxt-img|nuxt-picture|v-img|VImg|ion-img|IonImg|q-img|QImg|el-image|ElImage)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
