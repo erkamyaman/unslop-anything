@@ -2454,3 +2454,20 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("img-no-alt ignores the word alt inside quoted attribute values (issue #262)", () => {
+  const altLines = (src, file = "Gallery.html") =>
+    scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+
+  // Flagged: word 'alt' appears inside class/title values, not as an attribute name.
+  assert.deepStrictEqual(altLines('<img src="/hero.png" class="card alt wide" />\n<img src="/team.png" title="Use alt text" />\n'), [1, 2]);
+  assert.deepStrictEqual(altLines("<img src='/team.png' title='Use alt text' />\n"), [1]);
+
+  // Quiet: real alt attributes (bare, empty, populated, or framework bindings).
+  assert.deepStrictEqual(altLines('<img src="/a.png" alt>\n'), []);
+  assert.deepStrictEqual(altLines('<img src="/a.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<img src="/a.png" alt="Team" />\n'), []);
+  assert.deepStrictEqual(altLines('<img src="/a.png" :alt="label" />\n', "Gallery.vue"), []);
+  assert.deepStrictEqual(altLines('<img src="/a.png" [alt]="label" />\n'), []);
+  assert.deepStrictEqual(altLines('<img src="/a.png" {alt} />\n', "Gallery.svelte"), []);
+});

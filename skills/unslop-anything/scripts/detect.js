@@ -1452,8 +1452,9 @@ const rules = [
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
+        const tagWithoutQuotedValues = tag.replace(/=(?:"[^"]*"|'[^']*')/g, '=""');
         const hasAlt = /[\s:\[.]alt\]?\s*=|\{\s*alt\s*\}|\{\s*\.\.\./.test(tag)
-          || (stack === "web" && /\salt(?=[\s/>]|$)/.test(tag));
+          || (stack === "web" && /\salt(?=[\s/>]|$)/.test(tagWithoutQuotedValues));
         if (!hasAlt) hits.push(m.index);
       }
       return hits;
