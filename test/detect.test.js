@@ -1368,6 +1368,18 @@ test("img-no-alt flags Ionic's ion-img and IonImg without alt (issue #235)", () 
   assert.deepStrictEqual(altLines('<ion-img-viewer src="/hero.png" />\n'), []);
 });
 
+test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", () => {
+  const altLines = (src, file = "Gallery.vue") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  assert.deepStrictEqual(altLines('<template>\n  <q-img src="/hero.png" />\n  <QImg src="/team.png" />\n  <el-image src="/group.png" />\n  <ElImage src="/office.png" />\n</template>\n'), [2, 3, 4, 5]);
+  assert.deepStrictEqual(altLines('<q-img src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<QImg src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<ElImage src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<q-img :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
+});
+
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's repro.
