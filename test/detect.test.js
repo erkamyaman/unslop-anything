@@ -1262,6 +1262,23 @@ test("focus-removed flags outline: none and outline: 0 in JS/TS files (issue #22
   assert.deepStrictEqual(lines('<input style={{ outline: "2px solid #2563eb" }} />\n'), []);
 });
 
+test("focus-removed flags outline-style: none and outlineStyle: \"none\" (issue #250)", () => {
+  const lines = (src, file = "Field.tsx") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "focus-removed").map((f) => f.line);
+  // Issue #250 repro:
+  assert.deepStrictEqual(lines('export const Field = () => <input style={{ outlineStyle: "none" }} aria-label="Email" />;\n'), [1]);
+  assert.deepStrictEqual(lines("input:focus { outline-style: none; }\n", "field.css"), [1]);
+  assert.deepStrictEqual(lines("<input style={{ outlineStyle: 'none' }} />\n"), [1]);
+  // The quiet cases: a real outline value, and a file with a focus-visible style.
+  assert.deepStrictEqual(lines("input:focus { outline-style: solid; }\n", "field.css"), []);
+  assert.deepStrictEqual(lines('<input style={{ outlineStyle: "auto" }} />\n'), []);
+  assert.deepStrictEqual(
+    lines('export const Field = () => <input style={{ outlineStyle: "none" }} />;\n:focus-visible { outline: 2px solid blue; }\n'),
+    [],
+  );
+  assert.deepStrictEqual(lines('<input style={{ outlineStyle: "none" }} className="focus-visible:ring-2" />\n'), []);
+  assert.deepStrictEqual(lines("input:focus { outline-style: none; } input:focus-visible { outline: 2px solid blue; }\n", "field.css"), []);
+});
+
 test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).map((f) => f.rule);
   // Issue #65: dotted subcomponents of a single card are not nested cards.
@@ -1366,6 +1383,18 @@ test("img-no-alt flags Ionic's ion-img and IonImg without alt (issue #235)", () 
   assert.deepStrictEqual(altLines('<ion-img :src="photo.url" :alt="photo.caption" />\n'), []);
   assert.deepStrictEqual(altLines('<IonImg src="/hero.png" alt={caption} />\n', "Hero.tsx"), []);
   assert.deepStrictEqual(altLines('<ion-img-viewer src="/hero.png" />\n'), []);
+});
+
+test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", () => {
+  const altLines = (src, file = "Gallery.vue") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  assert.deepStrictEqual(altLines('<template>\n  <q-img src="/hero.png" />\n  <QImg src="/team.png" />\n  <el-image src="/group.png" />\n  <ElImage src="/office.png" />\n</template>\n'), [2, 3, 4, 5]);
+  assert.deepStrictEqual(altLines('<q-img src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<QImg src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image src="/hero.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(altLines('<ElImage src="/hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<q-img :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image :src="photo.url" :alt="photo.caption" />\n'), []);
+  assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
 });
 
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
@@ -1595,6 +1624,32 @@ test("glow-shadow skips inset accent bars with no blur (#111)", () => {
   );
 });
 
+test("glow-shadow flags boxShadow and textShadow in JS style objects (#251)", () => {
+  // Issue #251 repro: the flag lands on line 3, like the CSS box-shadow case.
+  const hero = [
+    "export function Hero() {",
+    "  return (",
+    '    <div style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.6)" }}>',
+    "      Pro",
+    "    </div>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(hero, "Hero.tsx").map((f) => [f.rule, f.line]), [["glow-shadow", 3]]);
+  // textShadow, single quotes, backticks, and a later key in the same object.
+  assert.deepStrictEqual(scanSource(`<div style={{ textShadow: '0 0 12px #7c3aed' }} />\n`, "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource("<div style={{ boxShadow: `0 0 40px #7c3aed` }} />\n", "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(
+    scanSource(`<div style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.6)", color: "blue" }} />\n`, "a.tsx").map((f) => f.rule),
+    ["glow-shadow"],
+  );
+  assert.deepStrictEqual(scanSource("<div style={{ boxShadow: `0 0 ${blur}px #7c3aed` }} />\n", "a.tsx").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource("const glow = {\n  boxShadow: `0 0 40px\n    #7c3aed`,\n};\n", "a.ts").map((f) => [f.rule, f.line]), [["glow-shadow", 2]]);
+  // A neutral shadow stays quiet, and a later key is not read as part of it.
+  assert.deepStrictEqual(scanSource(`<div style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" }} />\n`, "a.tsx"), []);
+  assert.deepStrictEqual(scanSource(`<div style={{ boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)", color: "#7c3aed" }} />\n`, "a.tsx").filter((f) => f.rule === "glow-shadow"), []);
+});
+
 test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   // The issue's example line, plus the group- prefix variant.
@@ -1789,12 +1844,15 @@ test("sparkle-icon flags Iconify and Nuxt sparkle icon names, not prose or unrel
     '  <Icon icon="heroicons:sparkles" />',
     '  <Icon icon="ph:sparkle" />',
     '  <Icon icon="tabler:sparkles" />',
+    '  <i class="ri-sparkling-line"></i>',
+    '  <i class="ri-sparkling-2-fill"></i>',
     '  <p>Add some sparkles</p>',
+    '  <span>sparkling water</span>',
     '  <Icon icon="lucide:star" />',
     "</template>",
   ].join("\n");
   const findings = scanSource(vue, "Badge.vue").filter((f) => f.rule === "sparkle-icon");
-  assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7]);
+  assert.deepStrictEqual(findings.map((f) => f.line), [2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
 test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => {
@@ -1802,7 +1860,7 @@ test("sparkle-icon flags react-icons sparkle names, not unrelated icons", () => 
   // Issue #197: the repro.
   const repro = 'import { HiSparkles } from "react-icons/hi2";\nimport { MdAutoAwesome } from "react-icons/md";\n\nexport function AiBadge() {\n  return <HiSparkles />;\n}\n';
   assert.deepStrictEqual(sparkleLines(repro), [1, 2, 5]);
-  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome"]) {
+  for (const name of ["HiSparkles", "HiOutlineSparkles", "LuSparkles", "TbSparkles", "PiSparkle", "IoSparklesSharp", "IoSparklesOutline", "MdAutoAwesome", "MdOutlineAutoAwesome", "RiSparklingLine", "RiSparklingFill", "RiSparkling2Line", "RiSparkling2Fill"]) {
     assert.deepStrictEqual(sparkleLines(`<${name} />\n`), [1], name);
   }
   for (const name of ["HiStar", "MdAutoGraph", "SparkleCounter"]) {
