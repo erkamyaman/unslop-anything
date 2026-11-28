@@ -1415,6 +1415,18 @@ test("nested-cards flags Quasar q-card and Element Plus el-card nesting, not the
   assert.deepStrictEqual(cardLines(quasarParts), []);
 });
 
+test("nested-cards flags Chakra UI v3 Card.Root nesting, not its card parts (issue #305)", () => {
+  const rulesFor = (src, file = "Plans.tsx") => scanSource(src, file).filter((f) => f.rule === "nested-cards").map((f) => f.line);
+  // Issue #305 repro:
+  const nested = 'import { Card } from "@chakra-ui/react";\n\nexport const Plans = () => (\n  <Card.Root>\n    <Card.Body>\n      <Card.Root>\n        <Card.Body>Pro plan</Card.Body>\n      </Card.Root>\n    </Card.Body>\n  </Card.Root>\n);\n';
+  assert.deepStrictEqual(rulesFor(nested), [4]);
+  // A single Card.Root with its parts inside stays quiet.
+  assert.deepStrictEqual(rulesFor("<Card.Root>\n  <Card.Header>Pro</Card.Header>\n  <Card.Body>$9</Card.Body>\n  <Card.Footer>Buy</Card.Footer>\n</Card.Root>\n"), []);
+  // Sibling Card.Root cards stay quiet.
+  assert.deepStrictEqual(rulesFor("<Card.Root><Card.Body>A</Card.Body></Card.Root>\n<Card.Root><Card.Body>B</Card.Body></Card.Root>\n"), []);
+  assert.deepStrictEqual(rulesFor("<Card><Card>Pro plan</Card></Card>\n"), [1]);
+});
+
 test("nested-cards flags Naive UI n-card and Ant Design Vue a-card nesting, not their card parts (issue #266)", () => {
   const cardLines = (src, file = "Plans.vue") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "nested-cards").map((f) => [f.line, f.severity]);
   // Issue #266 repro:
@@ -1562,6 +1574,18 @@ test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", 
   assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
 });
 
+test("img-no-alt checks PrimeNG p-image in Angular templates (issue #303)", () => {
+  const template = [
+    '<p-image src="/hero.png" width="250" preview />',
+    '<p-image src="/hero.png" alt="Hero" />',
+    '<p-image src="/decoration.png" alt="" />',
+    '<p-image src="/hero.png" [alt]="title" />',
+    '<p-image-compare />',
+  ].join("\n");
+  const findings = scanSource(template, "hero.component.html", { kind: "web" });
+  assert.deepStrictEqual(findings.filter((f) => f.rule === "img-no-alt").map((f) => f.line), [1]);
+});
+
 test("img-no-alt flags Astro's Picture component without alt (issue #268)", () => {
   const altLines = (src, file = "Hero.astro") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
   // Issue #268 repro:
@@ -1617,6 +1641,31 @@ test("img-no-alt flags Gatsby's StaticImage and GatsbyImage without alt (issue #
   // A component whose name only starts the same way stays quiet
   assert.deepStrictEqual(altLines('<StaticImageGrid items={items} />\n'), []);
   assert.deepStrictEqual(altLines('<GatsbyImageList items={items} />\n'), []);
+});
+
+test("img-no-alt flags SvelteKit's enhanced:img without alt (issue #304)", () => {
+  const altLines = (src, file = "Hero.svelte") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  // Issue #304 repro:
+  const repro = [
+    "<script>",
+    '  let title = "Hero";',
+    "</script>",
+    "",
+    '<enhanced:img src="./hero.png" />',
+  ].join("\n");
+  assert.deepStrictEqual(altLines(repro), [5]);
+
+  // Alt forms (including Svelte {alt} shorthand) stay quiet
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt={title} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {alt} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {...props} />\n'), []);
+
+  // Plain <img> still works and unrelated enhanced:* tags stay quiet
+  assert.deepStrictEqual(altLines('<img src="./hero.png" />\n'), [1]);
+  assert.deepStrictEqual(altLines('<img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img-wrapper src="./hero.png" />\n'), []);
 });
 
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
