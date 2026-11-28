@@ -1424,6 +1424,7 @@ test("nested-cards flags Chakra UI v3 Card.Root nesting, not its card parts (iss
   assert.deepStrictEqual(rulesFor("<Card.Root>\n  <Card.Header>Pro</Card.Header>\n  <Card.Body>$9</Card.Body>\n  <Card.Footer>Buy</Card.Footer>\n</Card.Root>\n"), []);
   // Sibling Card.Root cards stay quiet.
   assert.deepStrictEqual(rulesFor("<Card.Root><Card.Body>A</Card.Body></Card.Root>\n<Card.Root><Card.Body>B</Card.Body></Card.Root>\n"), []);
+  assert.deepStrictEqual(rulesFor("<Card><Card>Pro plan</Card></Card>\n"), [1]);
 });
 
 test("nested-cards flags Naive UI n-card and Ant Design Vue a-card nesting, not their card parts (issue #266)", () => {
