@@ -2364,6 +2364,36 @@ test("glass-everywhere counts Tailwind backdrop-blur classes", () => {
   assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
 });
 
+test("glass-everywhere does not count CSS backdrop-filter: none", () => {
+  // The repro from issue #321: the stylesheet turns the blur off for print.
+  const quiet = [
+    ".nav { backdrop-filter: blur(12px); }",
+    ".modal { backdrop-filter: blur(20px); }",
+    "@media print {",
+    "  .nav, .modal { backdrop-filter: none; }",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(quiet, "glass.css"), []);
+
+  // Any spacing, and the -webkit- prefixed form, are left out too.
+  const spaced = [
+    ".a { backdrop-filter:none; }",
+    ".b { backdrop-filter :  none; }",
+    ".c { -webkit-backdrop-filter: none; }",
+    ".d { backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(spaced, "glass.css"), []);
+
+  // Three real blur surfaces are still flagged, even with a `none` rule in the file.
+  const flagged = [
+    ".a { backdrop-filter: blur(12px); }",
+    ".b { backdrop-filter: blur(16px); }",
+    ".c { backdrop-filter: blur(20px); }",
+    "@media print { .a { backdrop-filter: none; } }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+});
+
 test("glass-everywhere counts backdropFilter in JS style objects", () => {
   // The repro from issue #288.
   const flagged = [

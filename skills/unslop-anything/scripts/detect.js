@@ -1027,8 +1027,9 @@ const rules = [
       // Tailwind: backdrop-blur, backdrop-blur-<size> and backdrop-blur-[...]
       // count as blur surfaces. backdrop-blur-none removes the blur, so it
       // does not count. backdropFilter in a JS style object counts the same
-      // way, except backdropFilter: "none".
-      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)|\bbackdropFilter\b(?!\s*:\s*["'`]none["'`])/, code)];
+      // way, except backdropFilter: "none". CSS `backdrop-filter: none` (and the
+      // -webkit- form) removes the blur as well.
+      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter(?!\s*:\s*none\b)|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)|\bbackdropFilter\b(?!\s*:\s*["'`]none["'`])/, code)];
       // A `-webkit-backdrop-filter` written next to the standard property is
       // the same blur surface, not a second one (#298): the `backdrop-filter`
       // inside `-webkit-backdrop-filter` already matches, so a standard
