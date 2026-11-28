@@ -2628,6 +2628,43 @@ test("keyboard-cover flags a bare TextInput on a screen file, not in a reusable 
   assert.deepStrictEqual(rulesFor(handled, "app/login.tsx"), []);
 });
 
+test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)", () => {
+  const rulesFor = (src, file = "app/chat.tsx") => scanSource(src, file).filter((f) => f.rule === "keyboard-cover").map((f) => f.line);
+  const screen = (importLine, body) => [
+    importLine,
+    'import { TextInput, View } from "react-native";',
+    "",
+    "export default function Chat() {",
+    ...(body ? [`  ${body}`] : []),
+    "  return (",
+    "    <View>",
+    '      <TextInput placeholder="Message" />',
+    "    </View>",
+    "  );",
+    "}",
+  ].join("\n");
+  const avoid = 'import { AvoidSoftInputView } from "react-native-avoid-softinput";';
+  // Issue #306 repro: wrapped in AvoidSoftInputView
+  const wrapped = [
+    'import { TextInput } from "react-native";',
+    'import { AvoidSoftInputView } from "react-native-avoid-softinput";',
+    "",
+    "export default function Chat() {",
+    "  return (",
+    "    <AvoidSoftInputView>",
+    '      <TextInput placeholder="Message" />',
+    "    </AvoidSoftInputView>",
+    "  );",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(rulesFor(wrapped), []);
+  // Enabled app-wide through the module-level API
+  assert.deepStrictEqual(rulesFor(screen(avoid, "AvoidSoftInput.setEnabled(true);")), []);
+  assert.deepStrictEqual(rulesFor(screen(avoid, "AvoidSoftInput.setEnabled(false);")), [8]);
+  // Imported but never used: still flagged
+  assert.deepStrictEqual(rulesFor(screen(avoid, "")), [7]);
+});
+
 test("keyboard-cover stays quiet when a screen calls a keyboard hook (issue #286)", () => {
   const rulesFor = (src, file = "app/chat.tsx") => scanSource(src, file).filter((f) => f.rule === "keyboard-cover").map((f) => f.line);
   // Issue #286 repro:
