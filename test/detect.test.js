@@ -1198,6 +1198,31 @@ test("clickable-div flags click handlers on table rows (issue #247)", () => {
   assert.deepStrictEqual(lines('<track kind="captions" onClick={open} />\n'), []);
 });
 
+test("clickable-div flags click handlers on table header cells (issue #299)", () => {
+  const lines = (src, file = "Table.tsx") => scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  // The repro from issue #299.
+  const repro = [
+    'export const Table = ({ sort }) => (',
+    "  <table>",
+    "    <thead>",
+    "      <tr>",
+    '        <th onClick={() => sort("name")}>Name</th>',
+    "      </tr>",
+    "    </thead>",
+    "  </table>",
+    ");",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [5]);
+  assert.deepStrictEqual(lines('<th @click="sort">Name</th>\n', "Table.vue"), [1]);
+  assert.deepStrictEqual(lines('<th (click)="sort()">Name</th>\n', "table.component.html"), [1]);
+  assert.deepStrictEqual(lines("<th on:click={sort}>Name</th>\n", "Table.svelte"), [1]);
+  // Quiet: a button inside the header cell, an interactive role with tabIndex,
+  // and a longer custom tag that only starts the same way.
+  assert.deepStrictEqual(lines('<th><button onClick={sort}>Name</button></th>\n'), []);
+  assert.deepStrictEqual(lines('<th role="button" tabIndex={0} onClick={sort}>Name</th>\n'), []);
+  assert.deepStrictEqual(lines('<th-sort (click)="sort()">Name</th-sort>\n', "table.component.html"), []);
+});
+
 test("tagEnd skips strings inside an attribute expression", () => {
   const imgs = (code) => scanSource(code, "A.tsx").filter((f) => f.rule === "img-no-alt");
   assert.deepStrictEqual(imgs('<img onLoad={() => loaded("}")} alt="Photo" src={src} />\n').length, 0);
@@ -1415,6 +1440,18 @@ test("nested-cards flags Quasar q-card and Element Plus el-card nesting, not the
   assert.deepStrictEqual(cardLines(quasarParts), []);
 });
 
+test("nested-cards flags Chakra UI v3 Card.Root nesting, not its card parts (issue #305)", () => {
+  const rulesFor = (src, file = "Plans.tsx") => scanSource(src, file).filter((f) => f.rule === "nested-cards").map((f) => f.line);
+  // Issue #305 repro:
+  const nested = 'import { Card } from "@chakra-ui/react";\n\nexport const Plans = () => (\n  <Card.Root>\n    <Card.Body>\n      <Card.Root>\n        <Card.Body>Pro plan</Card.Body>\n      </Card.Root>\n    </Card.Body>\n  </Card.Root>\n);\n';
+  assert.deepStrictEqual(rulesFor(nested), [4]);
+  // A single Card.Root with its parts inside stays quiet.
+  assert.deepStrictEqual(rulesFor("<Card.Root>\n  <Card.Header>Pro</Card.Header>\n  <Card.Body>$9</Card.Body>\n  <Card.Footer>Buy</Card.Footer>\n</Card.Root>\n"), []);
+  // Sibling Card.Root cards stay quiet.
+  assert.deepStrictEqual(rulesFor("<Card.Root><Card.Body>A</Card.Body></Card.Root>\n<Card.Root><Card.Body>B</Card.Body></Card.Root>\n"), []);
+  assert.deepStrictEqual(rulesFor("<Card><Card>Pro plan</Card></Card>\n"), [1]);
+});
+
 test("nested-cards flags Naive UI n-card and Ant Design Vue a-card nesting, not their card parts (issue #266)", () => {
   const cardLines = (src, file = "Plans.vue") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "nested-cards").map((f) => [f.line, f.severity]);
   // Issue #266 repro:
@@ -1562,6 +1599,18 @@ test("img-no-alt flags Quasar's q-img and Element Plus's el-image without alt", 
   assert.deepStrictEqual(altLines('<el-image-viewer src="/hero.png" />\n'), []);
 });
 
+test("img-no-alt checks PrimeNG p-image in Angular templates (issue #303)", () => {
+  const template = [
+    '<p-image src="/hero.png" width="250" preview />',
+    '<p-image src="/hero.png" alt="Hero" />',
+    '<p-image src="/decoration.png" alt="" />',
+    '<p-image src="/hero.png" [alt]="title" />',
+    '<p-image-compare />',
+  ].join("\n");
+  const findings = scanSource(template, "hero.component.html", { kind: "web" });
+  assert.deepStrictEqual(findings.filter((f) => f.rule === "img-no-alt").map((f) => f.line), [1]);
+});
+
 test("img-no-alt flags Astro's Picture component without alt (issue #268)", () => {
   const altLines = (src, file = "Hero.astro") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
   // Issue #268 repro:
@@ -1617,6 +1666,31 @@ test("img-no-alt flags Gatsby's StaticImage and GatsbyImage without alt (issue #
   // A component whose name only starts the same way stays quiet
   assert.deepStrictEqual(altLines('<StaticImageGrid items={items} />\n'), []);
   assert.deepStrictEqual(altLines('<GatsbyImageList items={items} />\n'), []);
+});
+
+test("img-no-alt flags SvelteKit's enhanced:img without alt (issue #304)", () => {
+  const altLines = (src, file = "Hero.svelte") => scanSource(src, file, { kind: "web" }).filter((f) => f.rule === "img-no-alt").map((f) => f.line);
+  // Issue #304 repro:
+  const repro = [
+    "<script>",
+    '  let title = "Hero";',
+    "</script>",
+    "",
+    '<enhanced:img src="./hero.png" />',
+  ].join("\n");
+  assert.deepStrictEqual(altLines(repro), [5]);
+
+  // Alt forms (including Svelte {alt} shorthand) stay quiet
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt="" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" alt={title} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {alt} />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img src="./hero.png" {...props} />\n'), []);
+
+  // Plain <img> still works and unrelated enhanced:* tags stay quiet
+  assert.deepStrictEqual(altLines('<img src="./hero.png" />\n'), [1]);
+  assert.deepStrictEqual(altLines('<img src="./hero.png" alt="Hero" />\n'), []);
+  assert.deepStrictEqual(altLines('<enhanced:img-wrapper src="./hero.png" />\n'), []);
 });
 
 test("placeholder-label flags inputs that use a placeholder as their only label", () => {
@@ -2313,6 +2387,73 @@ test("glass-everywhere counts backdropFilter in JS style objects", () => {
   assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
 });
 
+test("glass-everywhere counts a -webkit-backdrop-filter next to backdrop-filter once (issue #298)", () => {
+  // The repro from issue #298: two surfaces, each written with the Safari
+  // prefix next to the standard property, stay quiet.
+  const prefixed = [
+    ".nav {",
+    "  -webkit-backdrop-filter: blur(12px);",
+    "  backdrop-filter: blur(12px);",
+    "}",
+    ".modal {",
+    "  -webkit-backdrop-filter: blur(20px);",
+    "  backdrop-filter: blur(20px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(prefixed, "glass.css"), []);
+
+  // Three surfaces written with both properties are still flagged.
+  const three = [
+    prefixed,
+    ".sheet {",
+    "  -webkit-backdrop-filter: blur(8px);",
+    "  backdrop-filter: blur(8px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(three, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  // Three surfaces with only the standard property are still flagged.
+  const plain = [
+    ".nav { backdrop-filter: blur(12px); }",
+    ".modal { backdrop-filter: blur(20px); }",
+    ".sheet { backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(plain, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  // The same pair written standard-first also counts as one surface.
+  const reversed = [
+    ".nav {",
+    "  backdrop-filter: blur(12px);",
+    "  -webkit-backdrop-filter: blur(12px);",
+    "}",
+    ".modal {",
+    "  backdrop-filter: blur(20px);",
+    "  -webkit-backdrop-filter: blur(20px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(reversed, "glass.css"), []);
+
+  const apart = [
+    ".nav { -webkit-backdrop-filter: blur(12px); background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(12px); }",
+    ".modal { backdrop-filter: blur(20px); color: white; -webkit-backdrop-filter: blur(20px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(apart, "glass.css"), []);
+
+  const prefixOnly = [
+    ".a { -webkit-backdrop-filter: blur(8px); }",
+    ".b { -webkit-backdrop-filter: blur(12px); }",
+    ".c { -webkit-backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(prefixOnly, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  const mixed = [
+    ".a { -webkit-backdrop-filter: blur(8px); }",
+    ".b { backdrop-filter: blur(12px); }",
+    ".c { backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(mixed, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+});
+
 test("tracked-caps-label catches leading-dot Tailwind tracking and rem letter-spacing", () => {
   assert.deepStrictEqual(
     scanSource('<p className="uppercase tracking-[.2em]">Features</p>', "Eyebrow.tsx").map((f) => f.rule),
@@ -2938,6 +3079,29 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
 
+test("sparkle-icon catches Primer SparkleFillIcon and SparklesFillIcon (issue #302)", () => {
+  const sparkleLines = (src, file = "Button.tsx") =>
+    scanSource(src, file).filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
+
+  const repro = [
+    'import { SparkleFillIcon, SparklesFillIcon, SparkleIcon, StarFillIcon } from "@primer/octicons-react";',
+    "export const a = <SparkleFillIcon />;",
+    "export const b = <SparklesFillIcon />;",
+    "export const c = <SparkleIcon />;",
+    "export const d = <StarFillIcon />;",
+    "export const e = <SparkleFillIconButton />;",
+  ].join("\n");
+  assert.deepStrictEqual(sparkleLines(repro), [1, 2, 3, 4]);
+
+  const ask = [
+    'import { SparkleFillIcon, SparklesFillIcon } from "@primer/octicons-react";',
+    "",
+    "export const Ask = () => <button><SparkleFillIcon /> Ask</button>;",
+    "export const Summarize = () => <button><SparklesFillIcon /> Summarize</button>;",
+  ].join("\n");
+  assert.deepStrictEqual(sparkleLines(ask, "Ask.tsx"), [1, 3, 4]);
+});
+
 test("drawer-nav catches Angular Material mat-sidenav and mat-drawer (issue #300)", () => {
   const drawerLines = (src, file = "shell.component.html") =>
     scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
@@ -2961,4 +3125,7 @@ test("drawer-nav catches Angular Material mat-sidenav and mat-drawer (issue #300
   assert.deepStrictEqual(drawerLines(drawer), [2]);
 
   assert.deepStrictEqual(drawerLines("<mat-tab-group><mat-tab label='Home'></mat-tab></mat-tab-group>\n"), []);
+
+  assert.deepStrictEqual(drawerLines("<mat-sidenav-container>\n  <mat-sidenav-content>Main</mat-sidenav-content>\n</mat-sidenav-container>\n"), []);
+  assert.deepStrictEqual(drawerLines("<mat-drawer-container>\n  <mat-drawer-content>Main</mat-drawer-content>\n</mat-drawer-container>\n"), []);
 });
