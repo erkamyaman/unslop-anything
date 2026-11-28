@@ -314,10 +314,51 @@ function blankStrings(text) {
     blank(segment, text.length);
     return text.length;
   };
+  const jsxTagAt = (start) => {
+    if (text[start] !== "<") return null;
+    if (text.startsWith("</>", start)) return { end: start + 2, closing: true, selfClosing: false };
+    if (text.startsWith("<>", start)) return { end: start + 1, closing: false, selfClosing: false };
+    const match = /^<(\/)?[A-Za-z_$][\w$.:~-]*(?=[\s/>])/.exec(text.slice(start));
+    if (!match) return null;
+    const end = tagEnd(text, start + 1);
+    if (end === -1) return null;
+    const closing = Boolean(match[1]);
+    return { end, closing, selfClosing: !closing && /\/\s*$/.test(text.slice(start, end)) };
+  };
+  const maskJsxTagStrings = (start, end) => {
+    for (let i = start + 1; i < end;) {
+      if (text[i] === "'" || text[i] === '"') { i = maskQuoted(i, text[i]); continue; }
+      if (text[i] === "`") { i = maskTemplate(i); continue; }
+      if (text[i] === "{") { i = scanCode(i + 1, 1); continue; }
+      i++;
+    }
+  };
   const scanCode = (start, templateDepth = 0) => {
     let depth = templateDepth;
+    let jsxDepth = 0;
     for (let i = start; i < text.length;) {
       const c = text[i];
+      if (jsxDepth > 0) {
+        if (c === "{") { i = scanCode(i + 1, 1); continue; }
+        const tag = jsxTagAt(i);
+        if (tag) {
+          maskJsxTagStrings(i, tag.end);
+          if (tag.closing) jsxDepth = Math.max(0, jsxDepth - 1);
+          else if (!tag.selfClosing) jsxDepth++;
+          i = tag.end + 1;
+          continue;
+        }
+        // Quotes in JSX text are text, not JavaScript string delimiters.
+        i++;
+        continue;
+      }
+      const tag = jsxTagAt(i);
+      if (tag) {
+        maskJsxTagStrings(i, tag.end);
+        if (!tag.closing && !tag.selfClosing) jsxDepth++;
+        i = tag.end + 1;
+        continue;
+      }
       if (
         c === "'" &&
         /[A-Za-z]/.test(text[i - 1] || "") &&

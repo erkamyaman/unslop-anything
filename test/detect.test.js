@@ -2529,6 +2529,14 @@ test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)",
     [1],
   );
   assert.deepStrictEqual(
+    rulesFor(`export default () => <View><Text>Users' messages</Text><TextInput /></View>;`),
+    [1],
+  );
+  assert.deepStrictEqual(
+    rulesFor(`const example = 'Users\\' messages <TextInput />';\nexport default () => <TextInput />;`),
+    [2],
+  );
+  assert.deepStrictEqual(
     rulesFor(`const example = () => /AvoidSoftInput.setEnabled(true)/;\nexport default () => <TextInput />;`),
     [2],
   );
