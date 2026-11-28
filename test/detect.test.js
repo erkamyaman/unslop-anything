@@ -2384,6 +2384,20 @@ test("glass-everywhere does not count CSS backdrop-filter: none", () => {
   ].join("\n");
   assert.deepStrictEqual(scanSource(spaced, "glass.css"), []);
 
+  // A "none" declaration in the other form must not hide a real blur (CodeRabbit review on #331).
+  const noneThenPrefixed = [
+    ".a { backdrop-filter: none; -webkit-backdrop-filter: blur(8px); }",
+    ".b { backdrop-filter: none; -webkit-backdrop-filter: blur(8px); }",
+    ".c { backdrop-filter: none; -webkit-backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(noneThenPrefixed, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+  const prefixedNoneThenBlur = [
+    ".a { -webkit-backdrop-filter: none; backdrop-filter: blur(8px); }",
+    ".b { -webkit-backdrop-filter: none; backdrop-filter: blur(8px); }",
+    ".c { -webkit-backdrop-filter: none; backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(prefixedNoneThenBlur, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
   // Three real blur surfaces are still flagged, even with a `none` rule in the file.
   const flagged = [
     ".a { backdrop-filter: blur(12px); }",

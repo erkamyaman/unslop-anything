@@ -1039,9 +1039,9 @@ const rules = [
       // prefixed declaration still counts.
       const surfaces = all.filter((m) => {
         if (code.slice(m.index - 8, m.index) === "-webkit-") {
-          return !/(?<!-webkit-)backdrop-filter\s*:[^{}]*$/.test(code.slice(0, m.index - 8));
+          return !/(?<!-webkit-)backdrop-filter\s*:(?!\s*none\b)[^{}]*$/.test(code.slice(0, m.index - 8));
         }
-        return !/-webkit-backdrop-filter\s*:[^{}]*$/.test(code.slice(0, m.index));
+        return !/-webkit-backdrop-filter\s*:(?!\s*none\b)[^{}]*$/.test(code.slice(0, m.index));
       });
       return surfaces.length >= 3 ? [surfaces[0].index] : [];
     },
