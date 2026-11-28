@@ -3129,3 +3129,25 @@ test("drawer-nav catches Angular Material mat-sidenav and mat-drawer (issue #300
   assert.deepStrictEqual(drawerLines("<mat-sidenav-container>\n  <mat-sidenav-content>Main</mat-sidenav-content>\n</mat-sidenav-container>\n"), []);
   assert.deepStrictEqual(drawerLines("<mat-drawer-container>\n  <mat-drawer-content>Main</mat-drawer-content>\n</mat-drawer-container>\n"), []);
 });
+
+test("drawer-nav catches Vuetify v-navigation-drawer and VNavigationDrawer (issue #301)", () => {
+  const drawerLines = (src, file = "App.vue") =>
+    scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+
+  const kebab = [
+    "<template>",
+    "  <v-app>",
+    '    <v-navigation-drawer v-model="drawer">',
+    "      <v-list>Menu</v-list>",
+    "    </v-navigation-drawer>",
+    "  </v-app>",
+    "</template>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(kebab), [3]);
+
+  const pascal = "<template><VNavigationDrawer /></template>\n";
+  assert.deepStrictEqual(drawerLines(pascal), [1]);
+
+  const quiet = "<template><v-bottom-navigation><v-tabs /></v-bottom-navigation></template>\n";
+  assert.deepStrictEqual(drawerLines(quiet), []);
+});
