@@ -2946,12 +2946,15 @@ test("clickable-div flags click handlers on th, not buttons inside th (issue #29
     '<th onClick={() => sort("name")}>Name</th>',
     '<th (click)="sort(\'name\')">Name</th>',
     '<th @click="sort(\'name\')">Name</th>',
+    '<TH onclick="sort()">Name</TH>',
+    '<th data-role="button" data-tabindex="0" onclick="sort()">Name</th>',
   ].join("\n");
-  assert.deepStrictEqual(clickLines(flagged), [1, 2, 3]);
+  assert.deepStrictEqual(clickLines(flagged), [1, 2, 3, 4, 5]);
 
   const quiet = [
     "<th><button onClick={sort}>Name</button></th>",
     '<th role="button" tabIndex={0} onClick={sort}>Name</th>',
+    '<th data-example=" onClick=sort">Name</th>',
     '<th-sort (click)="sort()">Name</th-sort>',
   ].join("\n");
   assert.deepStrictEqual(clickLines(quiet), []);

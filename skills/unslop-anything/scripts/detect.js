@@ -1394,12 +1394,22 @@ const rules = [
       const hits = [];
       // Each opening tag is read to its real end first, so an arrow function in an earlier
       // attribute (`onKeyDown={(e) => ...}`) does not hide the click handler after it.
-      for (const m of matches(/<(?:div|span|li|td|th|tr|img|a|article|section|h[1-6]|p|header|footer|figure)(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|[tT][hH]|tr|img|a|article|section|h[1-6]|p|header|footer|figure)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
-        // Only this element's own attributes: a nested element inside {...} is checked on its own.
+        // Only this element's own unquoted attribute names: quoted values and nested {...} elements are skipped.
         let top = m[0];
-        walkTag(code, m.index + m[0].length, (i) => { top += code[i]; });
+        let inQuote = null;
+        walkTag(code, m.index + m[0].length, (i) => {
+          const ch = code[i];
+          if (inQuote) {
+            if (ch === inQuote) inQuote = null;
+          } else if (ch === '"' || ch === "'") {
+            inQuote = ch;
+          } else {
+            top += ch;
+          }
+        });
         // onClick/onclick (React, HTML), onClick$ (Qwik), @click/v-on:click (Vue, Alpine),
         // x-on:click (Alpine), on:click (Svelte) and (click) (Angular).
         if (!/\s(?:(?:on[cC]lick\$?|@click|v-on:click|x-on:click|on:click)(?:\.[\w-]+|\|\w+)*|\(click\))\s*=/.test(top)) continue;
@@ -1408,8 +1418,8 @@ const rules = [
         // keyboard- and screen-reader-accessible when it has both an
         // interactive ARIA role and a tabIndex.
         if (
-          /\brole\s*=\s*["'{`]*\s*(?:button|link|checkbox|menuitem(?:checkbox|radio)?|option|radio|switch|tab|textbox|combobox|gridcell|searchbox|slider|spinbutton|treeitem)\b/.test(tag) &&
-          /\btab[iI]ndex\s*=/.test(tag)
+          /(?<![\w-])role\s*=\s*["'{`]*\s*(?:button|link|checkbox|menuitem(?:checkbox|radio)?|option|radio|switch|tab|textbox|combobox|gridcell|searchbox|slider|spinbutton|treeitem)\b/.test(tag) &&
+          /(?<![\w-])tab[iI]ndex\s*=/.test(tag)
         ) {
           continue;
         }
