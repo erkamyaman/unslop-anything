@@ -2987,7 +2987,7 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
 
-test("sparkle-icon catches Primer SparkleFillIcon and SparklesFillIcon", () => {
+test("sparkle-icon catches Primer SparkleFillIcon and SparklesFillIcon (issue #302)", () => {
   const sparkleLines = (src, file = "Button.tsx") =>
     scanSource(src, file).filter((f) => f.rule === "sparkle-icon").map((f) => f.line);
 
@@ -3000,4 +3000,12 @@ test("sparkle-icon catches Primer SparkleFillIcon and SparklesFillIcon", () => {
     "export const e = <SparkleFillIconButton />;",
   ].join("\n");
   assert.deepStrictEqual(sparkleLines(repro), [1, 2, 3, 4]);
+
+  const ask = [
+    'import { SparkleFillIcon, SparklesFillIcon } from "@primer/octicons-react";',
+    "",
+    "export const Ask = () => <button><SparkleFillIcon /> Ask</button>;",
+    "export const Summarize = () => <button><SparklesFillIcon /> Summarize</button>;",
+  ].join("\n");
+  assert.deepStrictEqual(sparkleLines(ask, "Ask.tsx"), [1, 3, 4]);
 });
