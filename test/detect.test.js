@@ -2362,6 +2362,73 @@ test("glass-everywhere counts backdropFilter in JS style objects", () => {
   assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
 });
 
+test("glass-everywhere counts a -webkit-backdrop-filter next to backdrop-filter once (issue #298)", () => {
+  // The repro from issue #298: two surfaces, each written with the Safari
+  // prefix next to the standard property, stay quiet.
+  const prefixed = [
+    ".nav {",
+    "  -webkit-backdrop-filter: blur(12px);",
+    "  backdrop-filter: blur(12px);",
+    "}",
+    ".modal {",
+    "  -webkit-backdrop-filter: blur(20px);",
+    "  backdrop-filter: blur(20px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(prefixed, "glass.css"), []);
+
+  // Three surfaces written with both properties are still flagged.
+  const three = [
+    prefixed,
+    ".sheet {",
+    "  -webkit-backdrop-filter: blur(8px);",
+    "  backdrop-filter: blur(8px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(three, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  // Three surfaces with only the standard property are still flagged.
+  const plain = [
+    ".nav { backdrop-filter: blur(12px); }",
+    ".modal { backdrop-filter: blur(20px); }",
+    ".sheet { backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(plain, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  // The same pair written standard-first also counts as one surface.
+  const reversed = [
+    ".nav {",
+    "  backdrop-filter: blur(12px);",
+    "  -webkit-backdrop-filter: blur(12px);",
+    "}",
+    ".modal {",
+    "  backdrop-filter: blur(20px);",
+    "  -webkit-backdrop-filter: blur(20px);",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(reversed, "glass.css"), []);
+
+  const apart = [
+    ".nav { -webkit-backdrop-filter: blur(12px); background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(12px); }",
+    ".modal { backdrop-filter: blur(20px); color: white; -webkit-backdrop-filter: blur(20px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(apart, "glass.css"), []);
+
+  const prefixOnly = [
+    ".a { -webkit-backdrop-filter: blur(8px); }",
+    ".b { -webkit-backdrop-filter: blur(12px); }",
+    ".c { -webkit-backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(prefixOnly, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+
+  const mixed = [
+    ".a { -webkit-backdrop-filter: blur(8px); }",
+    ".b { backdrop-filter: blur(12px); }",
+    ".c { backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(mixed, "glass.css").map((f) => f.rule), ["glass-everywhere"]);
+});
+
 test("tracked-caps-label catches leading-dot Tailwind tracking and rem letter-spacing", () => {
   assert.deepStrictEqual(
     scanSource('<p className="uppercase tracking-[.2em]">Features</p>', "Eyebrow.tsx").map((f) => f.rule),
