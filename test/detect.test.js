@@ -3151,3 +3151,36 @@ test("drawer-nav catches Vuetify v-navigation-drawer and VNavigationDrawer (issu
   const quiet = "<template><v-bottom-navigation><v-tabs /></v-bottom-navigation></template>\n";
   assert.deepStrictEqual(drawerLines(quiet), []);
 });
+
+test("drawer-nav catches Flutter's endDrawer, not a bottom navigation bar (issue #327)", () => {
+  const lines = (src, file = "home.dart") => scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => [f.line, f.severity]);
+  // Issue #327 repro:
+  const repro = [
+    "import 'package:flutter/material.dart';",
+    "",
+    "class Home extends StatelessWidget {",
+    "  @override",
+    "  Widget build(BuildContext context) {",
+    "    return Scaffold(",
+    "      endDrawer: const Drawer(child: Text('Menu')),",
+    "      body: const Text('Home'),",
+    "    );",
+    "  }",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [[7, "noticeable"]]);
+
+  // Both sides, with and without const, and the Material 3 NavigationDrawer
+  for (const line of [
+    "drawer: Drawer(child: menu),",
+    "drawer: const Drawer(child: menu),",
+    "endDrawer: Drawer(child: menu),",
+    "endDrawer: const Drawer(child: menu),",
+    "endDrawer: NavigationDrawer(children: items),",
+  ]) {
+    assert.deepStrictEqual(lines(`Scaffold(\n  ${line}\n)\n`), [[2, "noticeable"]], line);
+  }
+
+  // Quiet case: a Scaffold with only a bottom navigation bar
+  assert.deepStrictEqual(lines("Scaffold(\n  bottomNavigationBar: NavigationBar(destinations: tabs),\n  body: const Text('Home'),\n)\n"), []);
+});
