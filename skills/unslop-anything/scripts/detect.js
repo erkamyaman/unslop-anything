@@ -1408,7 +1408,7 @@ const rules = [
       const hits = [];
       // Each opening tag is read to its real end first, so an arrow function in an earlier
       // attribute (`onKeyDown={(e) => ...}`) does not hide the click handler after it.
-      for (const m of matches(/<(?:div|span|li|td|tr|img|a|article|section|h[1-6]|p|header|footer|figure)(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:div|span|li|td|th|tr|img|a|article|section|h[1-6]|p|header|footer|figure)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index + m[0].length);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         // Only this element's own attributes: a nested element inside {...} is checked on its own.

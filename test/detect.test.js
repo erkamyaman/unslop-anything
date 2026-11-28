@@ -1198,6 +1198,31 @@ test("clickable-div flags click handlers on table rows (issue #247)", () => {
   assert.deepStrictEqual(lines('<track kind="captions" onClick={open} />\n'), []);
 });
 
+test("clickable-div flags click handlers on table header cells (issue #299)", () => {
+  const lines = (src, file = "Table.tsx") => scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  // The repro from issue #299.
+  const repro = [
+    'export const Table = ({ sort }) => (',
+    "  <table>",
+    "    <thead>",
+    "      <tr>",
+    '        <th onClick={() => sort("name")}>Name</th>',
+    "      </tr>",
+    "    </thead>",
+    "  </table>",
+    ");",
+  ].join("\n");
+  assert.deepStrictEqual(lines(repro), [5]);
+  assert.deepStrictEqual(lines('<th @click="sort">Name</th>\n', "Table.vue"), [1]);
+  assert.deepStrictEqual(lines('<th (click)="sort()">Name</th>\n', "table.component.html"), [1]);
+  assert.deepStrictEqual(lines("<th on:click={sort}>Name</th>\n", "Table.svelte"), [1]);
+  // Quiet: a button inside the header cell, an interactive role with tabIndex,
+  // and a longer custom tag that only starts the same way.
+  assert.deepStrictEqual(lines('<th><button onClick={sort}>Name</button></th>\n'), []);
+  assert.deepStrictEqual(lines('<th role="button" tabIndex={0} onClick={sort}>Name</th>\n'), []);
+  assert.deepStrictEqual(lines('<th-sort (click)="sort()">Name</th-sort>\n', "table.component.html"), []);
+});
+
 test("tagEnd skips strings inside an attribute expression", () => {
   const imgs = (code) => scanSource(code, "A.tsx").filter((f) => f.rule === "img-no-alt");
   assert.deepStrictEqual(imgs('<img onLoad={() => loaded("}")} alt="Photo" src={src} />\n').length, 0);
