@@ -3101,3 +3101,31 @@ test("sparkle-icon catches Primer SparkleFillIcon and SparklesFillIcon (issue #3
   ].join("\n");
   assert.deepStrictEqual(sparkleLines(ask, "Ask.tsx"), [1, 3, 4]);
 });
+
+test("drawer-nav catches Angular Material mat-sidenav and mat-drawer (issue #300)", () => {
+  const drawerLines = (src, file = "shell.component.html") =>
+    scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+
+  const repro = [
+    "<mat-sidenav-container>",
+    '  <mat-sidenav mode="side" opened>',
+    "    <mat-nav-list>Menu</mat-nav-list>",
+    "  </mat-sidenav>",
+    "  <mat-sidenav-content>Main</mat-sidenav-content>",
+    "</mat-sidenav-container>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(repro), [2]);
+
+  const drawer = [
+    "<mat-drawer-container>",
+    '  <mat-drawer mode="side">Menu</mat-drawer>',
+    "  <mat-drawer-content>Main</mat-drawer-content>",
+    "</mat-drawer-container>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(drawer), [2]);
+
+  assert.deepStrictEqual(drawerLines("<mat-tab-group><mat-tab label='Home'></mat-tab></mat-tab-group>\n"), []);
+
+  assert.deepStrictEqual(drawerLines("<mat-sidenav-container>\n  <mat-sidenav-content>Main</mat-sidenav-content>\n</mat-sidenav-container>\n"), []);
+  assert.deepStrictEqual(drawerLines("<mat-drawer-container>\n  <mat-drawer-content>Main</mat-drawer-content>\n</mat-drawer-container>\n"), []);
+});
