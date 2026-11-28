@@ -2937,3 +2937,22 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("clickable-div flags click handlers on th, not buttons inside th (issue #299)", () => {
+  const clickLines = (src, file = "Table.tsx") =>
+    scanSource(src, file).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+
+  const flagged = [
+    '<th onClick={() => sort("name")}>Name</th>',
+    '<th (click)="sort(\'name\')">Name</th>',
+    '<th @click="sort(\'name\')">Name</th>',
+  ].join("\n");
+  assert.deepStrictEqual(clickLines(flagged), [1, 2, 3]);
+
+  const quiet = [
+    "<th><button onClick={sort}>Name</button></th>",
+    '<th role="button" tabIndex={0} onClick={sort}>Name</th>',
+    '<th-sort (click)="sort()">Name</th-sort>',
+  ].join("\n");
+  assert.deepStrictEqual(clickLines(quiet), []);
+});
