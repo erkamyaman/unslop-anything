@@ -2961,4 +2961,11 @@ test("glass-everywhere counts -webkit-backdrop-filter next to backdrop-filter as
     ".c { backdrop-filter: blur(16px); }",
   ].join("\n");
   assert.strictEqual(glassCount(threePlain), 1);
+
+  const threePrefixOnly = [
+    ".a { -webkit-backdrop-filter: blur(8px); }",
+    ".b { -webkit-backdrop-filter: blur(12px); }",
+    ".c { -webkit-backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.strictEqual(glassCount(threePrefixOnly), 1);
 });
