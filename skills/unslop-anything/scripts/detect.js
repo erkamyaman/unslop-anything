@@ -314,7 +314,7 @@ function blankStrings(text) {
     blank(segment, text.length);
     return text.length;
   };
-  const jsxTagAt = (start) => {
+  const jsxTagAt = (start, insideJsx = false) => {
     if (text[start] !== "<") return null;
     if (text.startsWith("</>", start)) return { end: start + 2, closing: true, selfClosing: false };
     if (text.startsWith("<>", start)) return { end: start + 1, closing: false, selfClosing: false };
@@ -323,6 +323,16 @@ function blankStrings(text) {
     const end = tagEnd(text, start + 1);
     if (end === -1) return null;
     const closing = Boolean(match[1]);
+    if (!closing && !insideJsx) {
+      const before = text.slice(0, start).trimEnd();
+      const previous = before.at(-1);
+      const canStartExpression =
+        !before ||
+        /[=([{,:;!?&|+*%~-]/.test(previous || "") ||
+        before.endsWith("=>") ||
+        /\b(?:return|throw|yield)\s*$/.test(before);
+      if (!canStartExpression) return null;
+    }
     return { end, closing, selfClosing: !closing && /\/\s*$/.test(text.slice(start, end)) };
   };
   const maskJsxTagStrings = (start, end) => {
@@ -340,7 +350,7 @@ function blankStrings(text) {
       const c = text[i];
       if (jsxDepth > 0) {
         if (c === "{") { i = scanCode(i + 1, 1); continue; }
-        const tag = jsxTagAt(i);
+        const tag = jsxTagAt(i, true);
         if (tag) {
           maskJsxTagStrings(i, tag.end);
           if (tag.closing) jsxDepth = Math.max(0, jsxDepth - 1);
@@ -348,7 +358,10 @@ function blankStrings(text) {
           i = tag.end + 1;
           continue;
         }
-        // Quotes in JSX text are text, not JavaScript string delimiters.
+        // JSX prose is neither executable code nor a JavaScript string. Keep
+        // line offsets while excluding it from consumers such as the enabled-
+        // call scan, which must still see expressions inside braces.
+        if (out[i] !== "\n") out[i] = " ";
         i++;
         continue;
       }

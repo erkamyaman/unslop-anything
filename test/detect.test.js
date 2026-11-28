@@ -2524,6 +2524,16 @@ test("keyboard-cover stays quiet for react-native-avoid-softinput (issue #306)",
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = "AvoidSoftInput.setEnabled(true)";')), [8]);
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `literal AvoidSoftInput.setEnabled(true)`;')), [8]);
   assert.deepStrictEqual(rulesFor(screen(avoid, 'const example = `call ${AvoidSoftInput.setEnabled(true)}`;')), []);
+  const genericTypeArgument = [
+    'const [value] = useState<string>("");',
+    'const example = "AvoidSoftInput.setEnabled(true)";',
+    "export default () => <TextInput />;",
+  ].join("\n");
+  assert.deepStrictEqual(rulesFor(genericTypeArgument), [3]);
+  const enabledCallInJsxText = `export default () => <View><Text>AvoidSoftInput.setEnabled(true)</Text><TextInput /></View>;`;
+  assert.deepStrictEqual(rulesFor(enabledCallInJsxText), [1]);
+  const enabledCallInJsxExpression = `export default () => <View><Text>{AvoidSoftInput.setEnabled(true)}</Text><TextInput /></View>;`;
+  assert.deepStrictEqual(rulesFor(enabledCallInJsxExpression), []);
   assert.deepStrictEqual(
     rulesFor(`export default () => <View><Text>Don't forget</Text><TextInput /></View>;`),
     [1],
