@@ -2937,3 +2937,28 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("glass-everywhere counts -webkit-backdrop-filter next to backdrop-filter as one surface (issue #298)", () => {
+  const glassCount = (src, file = "glass.css") =>
+    scanSource(src, file).filter((f) => f.rule === "glass-everywhere").length;
+
+  const twoPrefixed = [
+    ".nav { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }",
+    ".modal { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }",
+  ].join("\n");
+  assert.strictEqual(glassCount(twoPrefixed), 0);
+
+  const threePrefixed = [
+    ".nav { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }",
+    ".modal { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }",
+    ".drawer { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }",
+  ].join("\n");
+  assert.strictEqual(glassCount(threePrefixed), 1);
+
+  const threePlain = [
+    ".a { backdrop-filter: blur(8px); }",
+    ".b { backdrop-filter: blur(12px); }",
+    ".c { backdrop-filter: blur(16px); }",
+  ].join("\n");
+  assert.strictEqual(glassCount(threePlain), 1);
+});

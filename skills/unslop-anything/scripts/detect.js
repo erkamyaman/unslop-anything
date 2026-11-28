@@ -1027,7 +1027,7 @@ const rules = [
       // count as blur surfaces. backdrop-blur-none removes the blur, so it
       // does not count. backdropFilter in a JS style object counts the same
       // way, except backdropFilter: "none".
-      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)|\bbackdropFilter\b(?!\s*:\s*["'`]none["'`])/, code)];
+      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|(?<![\w-])backdrop-filter\b|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)|\bbackdropFilter\b(?!\s*:\s*["'`]none["'`])/, code)];
       return all.length >= 3 ? [all[0].index] : [];
     },
   },
