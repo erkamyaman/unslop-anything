@@ -2937,3 +2937,28 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("drawer-nav catches Angular Material mat-sidenav and mat-drawer (issue #300)", () => {
+  const drawerLines = (src, file = "shell.component.html") =>
+    scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+
+  const repro = [
+    "<mat-sidenav-container>",
+    '  <mat-sidenav mode="side" opened>',
+    "    <mat-nav-list>Menu</mat-nav-list>",
+    "  </mat-sidenav>",
+    "  <mat-sidenav-content>Main</mat-sidenav-content>",
+    "</mat-sidenav-container>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(repro), [2]);
+
+  const drawer = [
+    "<mat-drawer-container>",
+    '  <mat-drawer mode="side">Menu</mat-drawer>',
+    "  <mat-drawer-content>Main</mat-drawer-content>",
+    "</mat-drawer-container>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(drawer), [2]);
+
+  assert.deepStrictEqual(drawerLines("<mat-tab-group><mat-tab label='Home'></mat-tab></mat-tab-group>\n"), []);
+});
