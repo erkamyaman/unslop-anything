@@ -3151,3 +3151,24 @@ test("drawer-nav catches Vuetify v-navigation-drawer and VNavigationDrawer (issu
   const quiet = "<template><v-bottom-navigation><v-tabs /></v-bottom-navigation></template>\n";
   assert.deepStrictEqual(drawerLines(quiet), []);
 });
+
+test("drawer-nav catches Compose DismissibleNavigationDrawer and ModalNavigationDrawer, not PermanentNavigationDrawer (issue #328)", () => {
+  const drawerLines = (src, file = "Home.kt") =>
+    scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+
+  const dismissible = [
+    "@Composable",
+    "fun Home() {",
+    '    DismissibleNavigationDrawer(drawerContent = { Text("Menu") }) {',
+    '        Text("Home")',
+    "    }",
+    "}",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(dismissible), [3]);
+
+  const modal = dismissible.replace("DismissibleNavigationDrawer", "ModalNavigationDrawer");
+  assert.deepStrictEqual(drawerLines(modal), [3]);
+
+  const permanent = dismissible.replace("DismissibleNavigationDrawer", "PermanentNavigationDrawer");
+  assert.deepStrictEqual(drawerLines(permanent), []);
+});
