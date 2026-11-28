@@ -2937,3 +2937,25 @@ test("glow-shadow flags Flutter text Shadow(color: ...), not neutral ones (issue
   assert.deepStrictEqual(glowLines("const s = Shadow(color: Color(0x42000000));\n"), []);
   assert.deepStrictEqual(glowLines("const s = BoxShadow(color: Colors.black54, blurRadius: 4);\n"), []);
 });
+
+test("drawer-nav catches Vuetify v-navigation-drawer and VNavigationDrawer (issue #301)", () => {
+  const drawerLines = (src, file = "App.vue") =>
+    scanSource(src, file, { platform: "mobile" }).filter((f) => f.rule === "drawer-nav").map((f) => f.line);
+
+  const kebab = [
+    "<template>",
+    "  <v-app>",
+    '    <v-navigation-drawer v-model="drawer">',
+    "      <v-list>Menu</v-list>",
+    "    </v-navigation-drawer>",
+    "  </v-app>",
+    "</template>",
+  ].join("\n");
+  assert.deepStrictEqual(drawerLines(kebab), [3]);
+
+  const pascal = "<template><VNavigationDrawer /></template>\n";
+  assert.deepStrictEqual(drawerLines(pascal), [1]);
+
+  const quiet = "<template><v-bottom-navigation><v-tabs /></v-bottom-navigation></template>\n";
+  assert.deepStrictEqual(drawerLines(quiet), []);
+});
